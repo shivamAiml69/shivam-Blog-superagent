@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Humanized Blog | AI Content Studio</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(145deg, #0B1120 0%, #192132 100%);
+            min-height: 100vh;
+            padding: 28px 16px;
+            line-height: 1.6;
+            color: #1E293B;
+        }
+
+        .result-container { max-width: 960px; margin: 0 auto; }
+
+        .top-nav { margin-bottom: 24px; }
+        .back-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            color: white; text-decoration: none; font-weight: 500;
+            padding: 10px 20px; background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px); border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+        .back-link:hover { background: rgba(255,255,255,0.2); transform: translateX(-4px); }
+
+        .result-card {
+            background: rgba(255,255,255,0.96);
+            border-radius: 36px;
+            box-shadow: 0 30px 70px rgba(0,0,0,0.4);
+            overflow: hidden;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-header {
+            background: linear-gradient(135deg, #6366F1, #8B5CF6);
+            padding: clamp(28px, 5vw, 48px) clamp(20px, 5vw, 40px);
+            color: white; position: relative; overflow: hidden;
+        }
+        .result-header::before {
+            content: '';
+            position: absolute; top: -50%; right: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+            animation: rotate 30s linear infinite;
+        }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .result-header h1 {
+            font-size: clamp(1.5rem, 5vw, 2.6rem);
+            font-weight: 700; letter-spacing: -0.5px;
+            margin-bottom: 24px; position: relative;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .result-header h1::before { content: '✨'; font-size: clamp(1.5rem, 4vw, 2.2rem); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 16px; position: relative;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
+            border-radius: 20px; padding: clamp(16px, 3vw, 24px);
+            border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s ease;
+        }
+        .stat-card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.25); }
+        .stat-label {
+            font-size: 0.82rem; text-transform: uppercase;
+            letter-spacing: 1px; opacity: 0.8; margin-bottom: 10px;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .stat-value {
+            font-size: clamp(2rem, 5vw, 2.8rem);
+            font-weight: 700; line-height: 1.1;
+        }
+        .stat-unit { font-size: 0.9rem; opacity: 0.7; margin-left: 3px; }
+        .stat-desc { font-size: 0.8rem; opacity: 0.7; margin-top: 4px; }
+        .score-low { color: #4ADE80; }
+        .score-high { color: #FBBF24; }
+
+        .content-area { padding: clamp(20px, 5vw, 48px); }
+
+        .meta-bar {
+            display: flex; gap: 16px; flex-wrap: wrap;
+            margin-bottom: 32px; padding: 16px 20px;
+            background: #F8FAFC; border-radius: 18px; border: 1px solid #E2E8F0;
+        }
+        .meta-item {
+            display: flex; align-items: center; gap: 8px;
+            color: #475569; font-size: 0.88rem;
+        }
+
+        .section-title {
+            font-size: clamp(1.1rem, 3vw, 1.7rem); font-weight: 600;
+            color: #1E293B; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .blog-content {
+            background: #F8FAFC; padding: clamp(20px, 5vw, 44px);
+            border-radius: 26px; font-family: 'Georgia', 'Times New Roman', serif;
+            line-height: 1.9; color: #1E293B; border: 1px solid #E2E8F0;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 32px;
+            overflow-wrap: break-word; word-break: break-word;
+        }
+        .blog-content h1 { font-size: clamp(1.5em, 4vw, 2.2em); margin: 1.4em 0 0.7em; font-weight: 700; color: #0F172A; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        .blog-content h2 { font-size: clamp(1.2em, 3vw, 1.8em); margin: 1.2em 0 0.5em; font-weight: 600; color: #1E293B; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        .blog-content h3 { font-size: clamp(1.05em, 2.5vw, 1.4em); margin: 1em 0 0.4em; font-weight: 600; color: #334155; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        .blog-content p { margin-bottom: 1.4em; font-size: clamp(1rem, 2vw, 1.1em); }
+        .blog-content ul, .blog-content ol { margin: 1.1em 0 1.4em 1.8em; }
+        .blog-content li { margin-bottom: 0.5em; }
+        .blog-content blockquote {
+            margin: 1.4em 0; padding: 1em 1.6em;
+            background: white; border-left: 5px solid #6366F1;
+            border-radius: 0 16px 16px 0; font-style: italic; color: #475569;
+        }
+        .blog-content code {
+            background: #E2E8F0; padding: 0.2em 0.4em;
+            border-radius: 5px; font-size: 0.88em;
+        }
+        .blog-content pre {
+            background: #1E293B; color: #E2E8F0;
+            padding: 1.2em; border-radius: 14px;
+            overflow-x: auto; margin: 1.4em 0; font-size: 0.9em;
+        }
+
+        .divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #6366F1, #8B5CF6, transparent);
+            margin: 32px 0;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px; margin: 24px 0;
+        }
+        .btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            padding: 16px 20px; border-radius: 18px; text-decoration: none;
+            font-weight: 600; font-size: clamp(0.9rem, 2vw, 1rem);
+            transition: all 0.3s ease; border: none; cursor: pointer;
+            text-align: center; font-family: inherit;
+        }
+        .btn-primary { background: linear-gradient(135deg, #6366F1, #8B5CF6); color: white; box-shadow: 0 8px 18px rgba(99,102,241,0.4); }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 14px 26px rgba(99,102,241,0.6); }
+        .btn-success { background: linear-gradient(135deg, #10B981, #059669); color: white; box-shadow: 0 8px 18px rgba(16,185,129,0.4); }
+        .btn-success:hover { transform: translateY(-3px); box-shadow: 0 14px 26px rgba(16,185,129,0.6); }
+        .btn-secondary { background: white; color: #6366F1; border: 2px solid #6366F1; }
+        .btn-secondary:hover { background: #EEF2FF; transform: translateY(-3px); box-shadow: 0 12px 22px rgba(0,0,0,0.08); }
+
+        .footer-nav {
+            text-align: center; padding: 32px clamp(16px, 5vw, 40px);
+            background: #F8FAFC; border-top: 1px solid #E2E8F0;
+        }
+        .dashboard-link {
+            display: inline-flex; align-items: center; gap: 10px;
+            color: #6366F1; text-decoration: none; font-weight: 600;
+            font-size: clamp(0.95rem, 2vw, 1.05rem);
+            padding: 14px 30px; border-radius: 40px;
+            background: white; border: 2px solid #6366F1; transition: all 0.3s ease;
+        }
+        .dashboard-link:hover { background: #6366F1; color: white; transform: translateY(-2px); box-shadow: 0 12px 26px rgba(99,102,241,0.4); }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body { padding: 16px 10px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .action-grid { grid-template-columns: 1fr; }
+            .meta-bar { gap: 10px; }
+            .blog-content { padding: 18px; }
+        }
+        @media (max-width: 360px) {
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+
+        @media print {
+            body { background: white; padding: 16px; }
+            .result-card { box-shadow: none; }
+            .result-header { background: #f8f9fa; color: #333; }
+            .btn, .footer-nav, .back-link, .action-grid { display: none; }
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #F1F5F9; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #6366F1, #8B5CF6); border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <div class="top-nav">
+            <a href="/" class="back-link">← Back to Generator</a>
+        </div>
+
+        <div class="result-card">
+            <div class="result-header">
+                <h1>Humanization Complete</h1>
+                <div class="stats-grid">
+                    <div class="stat-card" data-tooltip="Below 45% = human-like content">
+                        <div class="stat-label">🤖 AI Detection Score</div>
+                        <div class="stat-value {{ 'score-low' if ai_detection_score < 45 else 'score-high' }}">
+                            {{ ai_detection_score }}<span class="stat-unit">%</span>
+                        </div>
+                        <div class="stat-desc">Internal Critic Verified</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">🔄 Refinement Loops</div>
+                        <div class="stat-value">{{ attempts }}<span class="stat-unit">x</span></div>
+                        <div class="stat-desc">Autonomous Passes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">📈 SEO Score</div>
+                        <div class="stat-value">{{ seo_score }}<span class="stat-unit">/100</span></div>
+                        <div class="stat-desc">Keyword Optimized</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="meta-bar">
+                    <div class="meta-item">📅 Generated just now</div>
+                    <div class="meta-item">⏱️ Est. {{ blog|wordcount // 200 + 1 }} min read</div>
+                    <div class="meta-item">📊 {{ blog|wordcount }} words</div>
+                    <div class="meta-item">🎯 {{ "✅ Humanization Passed" if ai_detection_score < 45 else "⚠️ Needs Review" }}</div>
+                </div>
+
+                <div class="section-title">📄 Generated Blog Content</div>
+
+                <div class="blog-content">{{ blog|safe }}</div>
+
+                <div class="divider"></div>
+
+                <div class="action-grid">
+                    <a href="{{ url_for('download_blog') }}" class="btn btn-primary">
+                        📄 Download Word File
+                    </a>
+                    <a href="/download-seo" class="btn btn-success">
+                        📊 Download SEO Report
+                    </a>
+                </div>
+
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="/" class="btn btn-secondary" style="display: inline-flex; width: auto; min-width: 240px;">
+                        🔄 Generate New Blog
+                    </a>
+                </div>
+            </div>
+
+            <div class="footer-nav">
+                <a href="/analytics" class="dashboard-link">
+                    📊 View Analytics Dashboard →
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.href && !this.classList.contains('btn-secondary')) {
+                    const orig = this.innerHTML;
+                    this.style.opacity = '0.7';
+                    setTimeout(() => { this.style.opacity = '1'; }, 2000);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
