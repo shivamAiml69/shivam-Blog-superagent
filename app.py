@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, send_file
 import json, os, markdown
 from datetime import datetime
 from docx import Document
-from config import GEMINI_KEYS
+from ai_engine.setting import GEMINI_KEYS
 from ai_engine.ai_client import BLOCKED_KEYS
 from dotenv import load_dotenv
 load_dotenv()

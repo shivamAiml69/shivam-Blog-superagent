@@ -1,5 +1,5 @@
 from tavily import TavilyClient
-from config import TAVILY_API_KEY
+from setting import TAVILY_API_KEY
 from datetime import datetime
 import random
 import re
