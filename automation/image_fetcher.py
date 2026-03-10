@@ -6,7 +6,7 @@ downloads it locally, and returns the file path.
 
 import requests
 import os
-from config import UNSPLASH_ACCESS_KEY
+from ai_engine.setting import UNSPLASH_ACCESS_KEY
 
 
 def fetch_image(topic: str, pillar: str) -> str | None:
