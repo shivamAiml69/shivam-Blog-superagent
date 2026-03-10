@@ -2,3 +2,5 @@ import os
 
 GEMINI_KEYS = os.getenv("GEMINI_KEYS", "").split(",")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+UNSPLASH_ACCESS_KEY = os.getenv("UNSPLASH_ACCESS_KEY")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")

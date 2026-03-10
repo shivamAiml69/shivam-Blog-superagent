@@ -18,6 +18,8 @@ from ai_engine.ai_client import generate_analysis_content
 from ai_engine.blueprint import generate_blueprint
 from ai_engine.human_outline import generate_human_outline
 from ai_engine.continuation import continue_blog
+from automation.image_fetcher import fetch_image
+from automation.telegram_bot import send_message, send_photo
 
 app = Flask(__name__)
 
@@ -418,6 +420,32 @@ def download_blog():
 def download_seo():
 
     return send_file("seo_report.json", as_attachment=True)
+
+@app.route("/telegram", methods=["POST"])
+def telegram():
+
+    data = request.json
+
+    chat_id = data["message"]["chat"]["id"]
+    text = data["message"]["text"]
+
+    if text == "/start":
+
+        send_message(chat_id, "AI Blog Bot Activated 🚀")
+
+    elif text == "/image":
+
+        topic = "digital marketing strategy"
+        pillar = "Digital Marketing"
+
+        image_path = fetch_image(topic, pillar)
+
+        if image_path:
+            send_photo(chat_id, image_path)
+        else:
+            send_message(chat_id, "Image not found")
+
+    return "ok"
 
 
 # -----------------------------------
