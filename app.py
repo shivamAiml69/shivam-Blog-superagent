@@ -20,6 +20,8 @@ from ai_engine.human_outline import generate_human_outline
 from ai_engine.continuation import continue_blog
 from automation.image_fetcher import fetch_image
 from automation.telegram_bot import send_message, send_photo
+from scheduler import run_scheduler
+import threading
 
 app = Flask(__name__)
 
@@ -421,19 +423,54 @@ def download_seo():
 
     return send_file("seo_report.json", as_attachment=True)
 
+
+user_state = {}
+user_data = {}
+
+PILLARS = [
+    "Digital Marketing",
+    "AI Strategy",
+    "Local SEO",
+    "Lead Gen",
+]
+
+CONTENT_INTENTS = [
+    "Educational",
+    "Conversion",
+    "Authority",
+    "SEO"
+]
+
+
 @app.route("/telegram", methods=["POST"])
 def telegram():
 
     data = request.json
 
-    chat_id = data["message"]["chat"]["id"]
-    text = data["message"]["text"]
+    if "message" not in data:
+        return "ok"
 
+    chat_id = data["message"]["chat"]["id"]
+    text = data["message"].get("text", "")
+
+    state = user_state.get(chat_id)
+
+    # START COMMAND
     if text == "/start":
 
-        send_message(chat_id, "AI Blog Bot Activated 🚀")
+        user_state[chat_id] = "select_pillar"
 
-    elif text == "/image":
+        msg = "🚀 AI Blog Agent Started\n\nSelect Pillar:\n"
+
+        for p in PILLARS:
+            msg += f"- {p}\n"
+
+        send_message(chat_id, msg)
+        return "ok"
+
+
+    # IMAGE TEST COMMAND
+    if text == "/image":
 
         topic = "digital marketing strategy"
         pillar = "Digital Marketing"
@@ -443,11 +480,135 @@ def telegram():
         if image_path:
             send_photo(chat_id, image_path)
         else:
-            send_message(chat_id, "Image not found")
+            send_message(chat_id, "❌ Image not found")
+
+        return "ok"
+
+
+    # SCHEDULE COMMAND
+    if text == "/schedule":
+
+        user_state[chat_id] = "schedule_setup"
+
+        send_message(
+            chat_id,
+            "📅 Schedule Setup\nSend: pillar | topic | intent"
+        )
+
+        return "ok"
+
+
+    # SCHEDULE INPUT
+    if state == "schedule_setup":
+
+        parts = text.split("|")
+
+        if len(parts) != 3:
+            send_message(chat_id, "Format:\n pillar | topic | intent")
+            return "ok"
+
+        pillar = parts[0].strip()
+        topic = parts[1].strip()
+        intent = parts[2].strip()
+
+        user_data[chat_id] = {
+            "pillar": pillar,
+            "topic": topic,
+            "intent": intent
+        }
+
+        send_message(chat_id, "✅ Schedule saved for 8:00 AM")
+
+        user_state[chat_id] = None
+        return "ok"
+
+
+    # SELECT PILLAR
+    if state == "select_pillar":
+
+        user_data[chat_id] = {"pillar": text}
+        user_state[chat_id] = "select_topic"
+
+        send_message(
+            chat_id,
+            "Topic option:\n1 Generate Topic\n2 Custom Topic"
+        )
+
+        return "ok"
+
+
+    # TOPIC MODE
+    if state == "select_topic":
+
+        if text == "1":
+
+            topic = "Future of AI Marketing Automation"
+
+            user_data[chat_id]["topic"] = topic
+            user_state[chat_id] = "select_intent"
+
+            send_message(
+                chat_id,
+                f"Generated Topic:\n{topic}\n\nSelect Intent:\nEducational\nConversion\nAuthority\nSEO"
+            )
+
+        else:
+
+            user_state[chat_id] = "custom_topic"
+            send_message(chat_id, "Send your topic")
+
+        return "ok"
+
+
+    # CUSTOM TOPIC
+    if state == "custom_topic":
+
+        user_data[chat_id]["topic"] = text
+        user_state[chat_id] = "select_intent"
+
+        send_message(
+            chat_id,
+            "Select Intent:\nEducational\nConversion\nAuthority\nSEO"
+        )
+
+        return "ok"
+
+
+    # CONTENT INTENT
+    if state == "select_intent":
+
+        user_data[chat_id]["intent"] = text
+
+        topic = user_data[chat_id]["topic"]
+        pillar = user_data[chat_id]["pillar"]
+
+        send_message(chat_id, "🧠 Generating blog...")
+
+        image_path = fetch_image(topic, pillar)
+
+        if image_path:
+            send_photo(chat_id, image_path)
+
+        blog = f"""
+Title: {topic}
+
+This is your generated blog content.
+
+Intent: {text}
+Pillar: {pillar}
+
+Token usage: 1200
+Remaining tokens: 98000
+"""
+
+        send_message(chat_id, blog)
+
+        user_state[chat_id] = None
+        return "ok"
 
     return "ok"
 
-
+threading.Thread(target=run_scheduler).start()
 # -----------------------------------
 
 if __name__ == "__main__":

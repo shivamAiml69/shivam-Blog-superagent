@@ -10,3 +10,4 @@ nltk
 tavily-python
 google-generativeai
 requests
+schedule
