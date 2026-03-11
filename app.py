@@ -20,8 +20,13 @@ from ai_engine.human_outline import generate_human_outline
 from ai_engine.continuation import continue_blog
 from automation.image_fetcher import fetch_image
 from automation.telegram_bot import send_message, send_photo
-from scheduler import run_scheduler
-import threading
+from automation.telegram_bot import (
+    send_message,
+    send_photo,
+    send_buttons,
+    answer_callback
+)
+
 
 app = Flask(__name__)
 
@@ -424,192 +429,268 @@ def download_seo():
     return send_file("seo_report.json", as_attachment=True)
 
 
+# -----------------------------------
+# TELEGRAM MEMORY
+# -----------------------------------
+
 user_state = {}
 user_data = {}
 
 PILLARS = [
-    "Digital Marketing",
+    "Social Media Marketing",
     "AI Strategy",
     "Local SEO",
     "Lead Gen",
+    "Website Optimization",
 ]
 
 CONTENT_INTENTS = [
     "Educational",
     "Conversion",
     "Authority",
-    "SEO"
+    "SEO",
+    "Engagement",
 ]
 
+
+# -----------------------------------
+# TOKEN USAGE
+# -----------------------------------
+
+def get_today_token_usage():
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    if os.path.exists(USAGE_FILE):
+
+        with open(USAGE_FILE, "r") as f:
+
+            full_usage = json.load(f)
+
+            usage = full_usage.get(today, {"total_tokens": 0})
+
+            return usage.get("total_tokens", 0)
+
+    return 0
+
+
+# -----------------------------------
+# TELEGRAM WEBHOOK
+# -----------------------------------
 
 @app.route("/telegram", methods=["POST"])
 def telegram():
 
     data = request.json
+    print("Incoming:", data)
 
-    if "message" not in data:
-        return "ok"
+    # -----------------------------
+    # BUTTON CLICK
+    # -----------------------------
 
-    chat_id = data["message"]["chat"]["id"]
-    text = data["message"].get("text", "")
+    if "callback_query" in data:
 
-    state = user_state.get(chat_id)
+        query = data["callback_query"]
 
-    # START COMMAND
-    if text == "/start":
+        chat_id = query["message"]["chat"]["id"]
+        callback_data = query["data"]
+        callback_id = query["id"]
 
-        user_state[chat_id] = "select_pillar"
+        answer_callback(callback_id)
 
-        msg = "🚀 AI Blog Agent Started\n\nSelect Pillar:\n"
+        print("Button clicked:", callback_data)
 
-        for p in PILLARS:
-            msg += f"- {p}\n"
+        # -----------------------------
+        # PILLAR SELECTED
+        # -----------------------------
 
-        send_message(chat_id, msg)
-        return "ok"
+        if callback_data.startswith("pillar:"):
 
+            pillar = callback_data.split(":")[1]
 
-    # IMAGE TEST COMMAND
-    if text == "/image":
+            user_data[chat_id] = {"pillar": pillar}
 
-        topic = "digital marketing strategy"
-        pillar = "Digital Marketing"
+            buttons = [
+                [{"text": "Suggest Topics", "callback_data": "topic:suggest"}],
+                [{"text": "Custom Topic", "callback_data": "topic:custom"}]
+            ]
 
-        image_path = fetch_image(topic, pillar)
-
-        if image_path:
-            send_photo(chat_id, image_path)
-        else:
-            send_message(chat_id, "❌ Image not found")
-
-        return "ok"
-
-
-    # SCHEDULE COMMAND
-    if text == "/schedule":
-
-        user_state[chat_id] = "schedule_setup"
-
-        send_message(
-            chat_id,
-            "📅 Schedule Setup\nSend: pillar | topic | intent"
-        )
-
-        return "ok"
-
-
-    # SCHEDULE INPUT
-    if state == "schedule_setup":
-
-        parts = text.split("|")
-
-        if len(parts) != 3:
-            send_message(chat_id, "Format:\n pillar | topic | intent")
-            return "ok"
-
-        pillar = parts[0].strip()
-        topic = parts[1].strip()
-        intent = parts[2].strip()
-
-        user_data[chat_id] = {
-            "pillar": pillar,
-            "topic": topic,
-            "intent": intent
-        }
-
-        send_message(chat_id, "✅ Schedule saved for 8:00 AM")
-
-        user_state[chat_id] = None
-        return "ok"
-
-
-    # SELECT PILLAR
-    if state == "select_pillar":
-
-        user_data[chat_id] = {"pillar": text}
-        user_state[chat_id] = "select_topic"
-
-        send_message(
-            chat_id,
-            "Topic option:\n1 Generate Topic\n2 Custom Topic"
-        )
-
-        return "ok"
-
-
-    # TOPIC MODE
-    if state == "select_topic":
-
-        if text == "1":
-
-            topic = "Future of AI Marketing Automation"
-
-            user_data[chat_id]["topic"] = topic
-            user_state[chat_id] = "select_intent"
-
-            send_message(
+            send_buttons(
                 chat_id,
-                f"Generated Topic:\n{topic}\n\nSelect Intent:\nEducational\nConversion\nAuthority\nSEO"
+                f"Pillar Selected: {pillar}\n\nChoose Topic Mode",
+                buttons
             )
 
-        else:
+            return "ok"
+
+        # -----------------------------
+        # TOPIC SUGGESTION
+        # -----------------------------
+
+        if callback_data == "topic:suggest":
+
+            pillar = user_data[chat_id]["pillar"]
+
+            topics = suggest_topics(pillar, "Educational", None)
+
+            buttons = []
+
+            for t in topics[:5]:
+
+                buttons.append([
+                    {"text": t, "callback_data": f"topic_select:{t}"}
+                ])
+
+            send_buttons(chat_id, "Choose a Topic", buttons)
+
+            return "ok"
+
+        # -----------------------------
+        # CUSTOM TOPIC MODE
+        # -----------------------------
+
+        if callback_data == "topic:custom":
 
             user_state[chat_id] = "custom_topic"
-            send_message(chat_id, "Send your topic")
 
-        return "ok"
+            send_message(chat_id, "Send your custom topic")
 
+            return "ok"
 
-    # CUSTOM TOPIC
-    if state == "custom_topic":
+        # -----------------------------
+        # TOPIC SELECTED
+        # -----------------------------
 
-        user_data[chat_id]["topic"] = text
-        user_state[chat_id] = "select_intent"
+        if callback_data.startswith("topic_select:"):
 
-        send_message(
-            chat_id,
-            "Select Intent:\nEducational\nConversion\nAuthority\nSEO"
-        )
+            topic = callback_data.split(":", 1)[1]
 
-        return "ok"
+            user_data[chat_id]["topic"] = topic
 
+            buttons = []
 
-    # CONTENT INTENT
-    if state == "select_intent":
+            for i in CONTENT_INTENTS:
 
-        user_data[chat_id]["intent"] = text
+                buttons.append([
+                    {"text": i, "callback_data": f"intent:{i}"}
+                ])
 
-        topic = user_data[chat_id]["topic"]
-        pillar = user_data[chat_id]["pillar"]
+            send_buttons(chat_id, "Select Content Intent", buttons)
 
-        send_message(chat_id, "🧠 Generating blog...")
+            return "ok"
 
-        image_path = fetch_image(topic, pillar)
+        # -----------------------------
+        # INTENT SELECTED
+        # -----------------------------
 
-        if image_path:
-            send_photo(chat_id, image_path)
+        if callback_data.startswith("intent:"):
 
-        blog = f"""
+            intent = callback_data.split(":")[1]
+
+            user_data[chat_id]["intent"] = intent
+
+            buttons = [[{
+                "text": "Generate & Humanize Blog",
+                "callback_data": "generate_blog"
+            }]]
+
+            send_buttons(
+                chat_id,
+                f"Intent Selected: {intent}",
+                buttons
+            )
+
+            return "ok"
+
+        # -----------------------------
+        # GENERATE BLOG
+        # -----------------------------
+
+        if callback_data == "generate_blog":
+
+            topic = user_data[chat_id]["topic"]
+            pillar = user_data[chat_id]["pillar"]
+            intent = user_data[chat_id]["intent"]
+
+            send_message(chat_id, "🧠 Generating blog...")
+
+            blog_content = generate_blog(topic, pillar, intent)
+
+            image_path = fetch_image(topic, pillar)
+
+            if image_path:
+                send_photo(chat_id, image_path)
+
+            tokens_used = get_today_token_usage()
+
+            blog_message = f"""
+📝 Blog Generated
+
 Title: {topic}
-
-This is your generated blog content.
-
-Intent: {text}
 Pillar: {pillar}
+Intent: {intent}
 
-Token usage: 1200
-Remaining tokens: 98000
+📊 Tokens Used Today: {tokens_used}
+
+{blog_content[:3500]}
 """
 
-        send_message(chat_id, blog)
+            send_message(chat_id, blog_message)
 
-        user_state[chat_id] = None
-        return "ok"
+            return "ok"
+
+    # -----------------------------
+    # TEXT MESSAGE
+    # -----------------------------
+
+    elif "message" in data:
+
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
+
+        print("User text:", text)
+
+        state = user_state.get(chat_id)
+
+        # START
+
+        if text == "/start":
+
+            buttons = []
+
+            for p in PILLARS:
+
+                buttons.append([
+                    {"text": p, "callback_data": f"pillar:{p}"}
+                ])
+
+            send_buttons(
+                chat_id,
+                "🚀 AI Blog Agent\n\nSelect Pillar",
+                buttons
+            )
+
+            return "ok"
+
+        # CUSTOM TOPIC INPUT
+
+        if state == "custom_topic":
+
+            user_data[chat_id]["topic"] = text
+
+            buttons = []
+
+            for i in CONTENT_INTENTS:
+
+                buttons.append([
+                    {"text": i, "callback_data": f"intent:{i}"}
+                ])
+
+            send_buttons(chat_id, "Select Content Intent", buttons)
+
+            return "ok"
 
     return "ok"
-
-threading.Thread(target=run_scheduler).start()
-# -----------------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
