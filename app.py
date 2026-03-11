@@ -533,7 +533,6 @@ def telegram():
 
             topics_raw = suggest_topics(pillar, "Educational", None)
 
-            # Convert AI response to list
             topics_list = topics_raw.split("\n")
 
             clean_topics = []
@@ -545,19 +544,21 @@ def telegram():
                 if not t:
                     continue
 
-                # Remove numbering like "1. "
-                t = t.lstrip("1234567890. ")
+                t = t.lstrip("1234567890.- ")
 
                 clean_topics.append(t)
 
+            # store topics
+            user_data[chat_id]["topics"] = clean_topics
+
             buttons = []
 
-            for topic in clean_topics[:5]:
+            for i, topic in enumerate(clean_topics[:5]):
 
                 buttons.append([
                     {
                         "text": topic,
-                        "callback_data": f"topic_select:{topic}"
+                        "callback_data": f"topic_{i}"
                     }
                 ])
 
@@ -581,18 +582,20 @@ def telegram():
         # TOPIC SELECTED
         # -----------------------------
 
-        if callback_data.startswith("topic_select:"):
+        if callback_data.startswith("topic_"):
 
-            topic = callback_data.split(":", 1)[1]
+            index = int(callback_data.split("_")[1])
+
+            topic = user_data[chat_id]["topics"][index]
 
             user_data[chat_id]["topic"] = topic
 
             buttons = []
 
-            for i in CONTENT_INTENTS:
+            for intent in CONTENT_INTENTS:
 
                 buttons.append([
-                    {"text": i, "callback_data": f"intent:{i}"}
+                    {"text": intent, "callback_data": f"intent:{intent}"}
                 ])
 
             send_buttons(chat_id, "Select Content Intent", buttons)
@@ -700,10 +703,10 @@ Intent: {intent}
 
             buttons = []
 
-            for i in CONTENT_INTENTS:
+            for intent in CONTENT_INTENTS:
 
                 buttons.append([
-                    {"text": i, "callback_data": f"intent:{i}"}
+                    {"text": intent, "callback_data": f"intent:{intent}"}
                 ])
 
             send_buttons(chat_id, "Select Content Intent", buttons)
@@ -712,7 +715,7 @@ Intent: {intent}
 
     return "ok"
 
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
-
 
