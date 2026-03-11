@@ -531,14 +531,34 @@ def telegram():
 
             pillar = user_data[chat_id]["pillar"]
 
-            topics = suggest_topics(pillar, "Educational", None)
+            topics_raw = suggest_topics(pillar, "Educational", None)
+
+            # Convert AI response to list
+            topics_list = topics_raw.split("\n")
+
+            clean_topics = []
+
+            for t in topics_list:
+
+                t = t.strip()
+
+                if not t:
+                    continue
+
+                # Remove numbering like "1. "
+                t = t.lstrip("1234567890. ")
+
+                clean_topics.append(t)
 
             buttons = []
 
-            for t in topics[:5]:
+            for topic in clean_topics[:5]:
 
                 buttons.append([
-                    {"text": t, "callback_data": f"topic_select:{t}"}
+                    {
+                        "text": topic,
+                        "callback_data": f"topic_select:{topic}"
+                    }
                 ])
 
             send_buttons(chat_id, "Choose a Topic", buttons)
