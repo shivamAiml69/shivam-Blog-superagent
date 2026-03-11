@@ -479,7 +479,7 @@ def get_today_token_usage():
 
 
 # -----------------------------------
-# HOME ROUTE
+# HOME
 # -----------------------------------
 
 @app.route("/")
@@ -496,10 +496,6 @@ def telegram():
 
     data = request.json
     print("Incoming:", data)
-
-    # -----------------------------------
-    # BUTTON CLICK
-    # -----------------------------------
 
     if "callback_query" in data:
 
@@ -563,23 +559,28 @@ def telegram():
 
             user_data[chat_id]["topics"] = clean_topics
 
-            buttons = []
+            # FULL TOPIC TEXT DISPLAY
+            topics_text = "Choose a Topic\n\n"
 
             for i, topic in enumerate(clean_topics[:5]):
+                topics_text += f"{i+1}. {topic}\n\n"
 
+            buttons = []
+
+            for i in range(min(5, len(clean_topics))):
                 buttons.append([
                     {
-                        "text": topic,
+                        "text": f"{i+1}",
                         "callback_data": f"topic_{i}"
                     }
                 ])
 
-            send_buttons(chat_id, "Choose a Topic", buttons)
+            send_buttons(chat_id, topics_text, buttons)
 
             return "ok"
 
         # -----------------------------------
-        # CUSTOM TOPIC MODE
+        # CUSTOM TOPIC
         # -----------------------------------
 
         if callback_data == "topic:custom":
@@ -680,9 +681,7 @@ Preview 👇
 """
             )
 
-            # -----------------------------------
-            # CREATE DOCX FILE
-            # -----------------------------------
+            # DOCX FILE
 
             document = Document()
             document.add_heading(topic, level=1)
@@ -709,23 +708,15 @@ Preview 👇
         chat_id = data["message"]["chat"]["id"]
         text = data["message"].get("text", "")
 
-        print("User text:", text)
-
         state = user_state.get(chat_id)
-
-        # START
 
         if text == "/start":
 
             buttons = []
 
             for p in PILLARS:
-
                 buttons.append([
-                    {
-                        "text": p,
-                        "callback_data": f"pillar:{p}"
-                    }
+                    {"text": p, "callback_data": f"pillar:{p}"}
                 ])
 
             send_buttons(
@@ -736,8 +727,6 @@ Preview 👇
 
             return "ok"
 
-        # CUSTOM TOPIC INPUT
-
         if state == "custom_topic":
 
             user_data[chat_id]["topic"] = text
@@ -745,12 +734,8 @@ Preview 👇
             buttons = []
 
             for intent in CONTENT_INTENTS:
-
                 buttons.append([
-                    {
-                        "text": intent,
-                        "callback_data": f"intent:{intent}"
-                    }
+                    {"text": intent, "callback_data": f"intent:{intent}"}
                 ])
 
             send_buttons(chat_id, "Select Content Intent", buttons)
@@ -761,7 +746,7 @@ Preview 👇
 
 
 # -----------------------------------
-# KEEP RENDER SERVER AWAKE
+# KEEP SERVER AWAKE
 # -----------------------------------
 
 def keep_alive():
@@ -775,7 +760,7 @@ def keep_alive():
         except Exception as e:
             print("Ping failed:", e)
 
-        time.sleep(600)  # 10 minutes
+        time.sleep(600)
 
 
 threading.Thread(target=keep_alive, daemon=True).start()
