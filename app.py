@@ -5,6 +5,10 @@ from docx import Document
 from ai_engine.setting import GEMINI_KEYS
 from ai_engine.ai_client import BLOCKED_KEYS
 from dotenv import load_dotenv
+from docx import Document
+import threading
+import time
+import requests
 load_dotenv()
 
 # AI Engine Imports
@@ -23,6 +27,7 @@ from automation.telegram_bot import send_message, send_photo
 from automation.telegram_bot import (
     send_message,
     send_photo,
+    send_document,
     send_buttons,
     answer_callback
 )
@@ -464,14 +469,22 @@ def get_today_token_usage():
     if os.path.exists(USAGE_FILE):
 
         with open(USAGE_FILE, "r") as f:
-
             full_usage = json.load(f)
 
-            usage = full_usage.get(today, {"total_tokens": 0})
+        usage = full_usage.get(today, {"total_tokens": 0})
 
-            return usage.get("total_tokens", 0)
+        return usage.get("total_tokens", 0)
 
     return 0
+
+
+# -----------------------------------
+# HOME ROUTE
+# -----------------------------------
+
+@app.route("/")
+def home():
+    return "AI Blog SuperAgent Running 🚀"
 
 
 # -----------------------------------
@@ -484,9 +497,9 @@ def telegram():
     data = request.json
     print("Incoming:", data)
 
-    # -----------------------------
+    # -----------------------------------
     # BUTTON CLICK
-    # -----------------------------
+    # -----------------------------------
 
     if "callback_query" in data:
 
@@ -500,9 +513,9 @@ def telegram():
 
         print("Button clicked:", callback_data)
 
-        # -----------------------------
+        # -----------------------------------
         # PILLAR SELECTED
-        # -----------------------------
+        # -----------------------------------
 
         if callback_data.startswith("pillar:"):
 
@@ -523,9 +536,9 @@ def telegram():
 
             return "ok"
 
-        # -----------------------------
+        # -----------------------------------
         # TOPIC SUGGESTION
-        # -----------------------------
+        # -----------------------------------
 
         if callback_data == "topic:suggest":
 
@@ -548,7 +561,6 @@ def telegram():
 
                 clean_topics.append(t)
 
-            # store topics
             user_data[chat_id]["topics"] = clean_topics
 
             buttons = []
@@ -566,9 +578,9 @@ def telegram():
 
             return "ok"
 
-        # -----------------------------
+        # -----------------------------------
         # CUSTOM TOPIC MODE
-        # -----------------------------
+        # -----------------------------------
 
         if callback_data == "topic:custom":
 
@@ -578,9 +590,9 @@ def telegram():
 
             return "ok"
 
-        # -----------------------------
+        # -----------------------------------
         # TOPIC SELECTED
-        # -----------------------------
+        # -----------------------------------
 
         if callback_data.startswith("topic_"):
 
@@ -595,16 +607,19 @@ def telegram():
             for intent in CONTENT_INTENTS:
 
                 buttons.append([
-                    {"text": intent, "callback_data": f"intent:{intent}"}
+                    {
+                        "text": intent,
+                        "callback_data": f"intent:{intent}"
+                    }
                 ])
 
             send_buttons(chat_id, "Select Content Intent", buttons)
 
             return "ok"
 
-        # -----------------------------
+        # -----------------------------------
         # INTENT SELECTED
-        # -----------------------------
+        # -----------------------------------
 
         if callback_data.startswith("intent:"):
 
@@ -625,9 +640,9 @@ def telegram():
 
             return "ok"
 
-        # -----------------------------
+        # -----------------------------------
         # GENERATE BLOG
-        # -----------------------------
+        # -----------------------------------
 
         if callback_data == "generate_blog":
 
@@ -646,7 +661,11 @@ def telegram():
 
             tokens_used = get_today_token_usage()
 
-            blog_message = f"""
+            preview = blog_content[:800]
+
+            send_message(
+                chat_id,
+                f"""
 📝 Blog Generated
 
 Title: {topic}
@@ -655,16 +674,35 @@ Intent: {intent}
 
 📊 Tokens Used Today: {tokens_used}
 
-{blog_content[:3500]}
-"""
+Preview 👇
 
-            send_message(chat_id, blog_message)
+{preview}
+"""
+            )
+
+            # -----------------------------------
+            # CREATE DOCX FILE
+            # -----------------------------------
+
+            document = Document()
+            document.add_heading(topic, level=1)
+
+            for paragraph in blog_content.split("\n"):
+                document.add_paragraph(paragraph)
+
+            safe_topic = topic.replace(" ", "_").replace("/", "").replace(":", "")
+
+            file_path = f"{safe_topic}.docx"
+
+            document.save(file_path)
+
+            send_document(chat_id, file_path)
 
             return "ok"
 
-    # -----------------------------
+    # -----------------------------------
     # TEXT MESSAGE
-    # -----------------------------
+    # -----------------------------------
 
     elif "message" in data:
 
@@ -684,7 +722,10 @@ Intent: {intent}
             for p in PILLARS:
 
                 buttons.append([
-                    {"text": p, "callback_data": f"pillar:{p}"}
+                    {
+                        "text": p,
+                        "callback_data": f"pillar:{p}"
+                    }
                 ])
 
             send_buttons(
@@ -706,7 +747,10 @@ Intent: {intent}
             for intent in CONTENT_INTENTS:
 
                 buttons.append([
-                    {"text": intent, "callback_data": f"intent:{intent}"}
+                    {
+                        "text": intent,
+                        "callback_data": f"intent:{intent}"
+                    }
                 ])
 
             send_buttons(chat_id, "Select Content Intent", buttons)
@@ -716,6 +760,31 @@ Intent: {intent}
     return "ok"
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+# -----------------------------------
+# KEEP RENDER SERVER AWAKE
+# -----------------------------------
 
+def keep_alive():
+
+    while True:
+
+        try:
+            requests.get("https://shivam-blog-superagent-7.onrender.com")
+            print("Server pinged")
+
+        except Exception as e:
+            print("Ping failed:", e)
+
+        time.sleep(600)  # 10 minutes
+
+
+threading.Thread(target=keep_alive, daemon=True).start()
+
+
+# -----------------------------------
+# RUN SERVER
+# -----------------------------------
+
+if __name__ == "__main__":
+
+    app.run(host="0.0.0.0", port=10000)

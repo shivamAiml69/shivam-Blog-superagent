@@ -93,6 +93,31 @@ def send_photo(chat_id, image_path):
 
 
 # -----------------------------------
+# SEND DOCUMENT (DOCX SUPPORT)
+# -----------------------------------
+
+def send_document(chat_id, file_path):
+
+    url = f"{BASE_URL}/sendDocument"
+
+    try:
+
+        with open(file_path, "rb") as document:
+
+            files = {"document": document}
+
+            data = {"chat_id": chat_id}
+
+            response = requests.post(url, files=files, data=data)
+
+            print("Telegram document:", response.text)
+
+    except Exception as e:
+
+        print("Telegram send_document error:", e)
+
+
+# -----------------------------------
 # EDIT MESSAGE (OPTIONAL)
 # -----------------------------------
 
