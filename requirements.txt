@@ -11,3 +11,4 @@ tavily-python
 google-generativeai
 requests
 schedule
+python-docx
