@@ -559,7 +559,6 @@ def telegram():
 
             user_data[chat_id]["topics"] = clean_topics
 
-            # FULL TOPIC TEXT DISPLAY
             topics_text = "Choose a Topic\n\n"
 
             for i, topic in enumerate(clean_topics[:5]):
@@ -606,12 +605,8 @@ def telegram():
             buttons = []
 
             for intent in CONTENT_INTENTS:
-
                 buttons.append([
-                    {
-                        "text": intent,
-                        "callback_data": f"intent:{intent}"
-                    }
+                    {"text": intent, "callback_data": f"intent:{intent}"}
                 ])
 
             send_buttons(chat_id, "Select Content Intent", buttons)
@@ -681,13 +676,34 @@ Preview 👇
 """
             )
 
-            # DOCX FILE
+            # -----------------------------------
+            # CREATE PROFESSIONAL DOCX
+            # -----------------------------------
 
             document = Document()
-            document.add_heading(topic, level=1)
 
-            for paragraph in blog_content.split("\n"):
-                document.add_paragraph(paragraph)
+            document.add_heading(topic, level=0)
+
+            lines = blog_content.split("\n")
+
+            for line in lines:
+
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                if line.startswith("# "):
+                    document.add_heading(line.replace("# ", ""), level=1)
+
+                elif line.startswith("## "):
+                    document.add_heading(line.replace("## ", ""), level=2)
+
+                elif line.startswith("### "):
+                    document.add_heading(line.replace("### ", ""), level=3)
+
+                else:
+                    document.add_paragraph(line)
 
             safe_topic = topic.replace(" ", "_").replace("/", "").replace(":", "")
 
