@@ -22,7 +22,8 @@ from ai_engine.ai_client import generate_analysis_content
 from ai_engine.blueprint import generate_blueprint
 from ai_engine.human_outline import generate_human_outline
 from ai_engine.continuation import continue_blog
-from automation.image_fetcher import fetch_image
+from docx.shared import Inches
+from automation.image_fetcher import generate_gemini_image
 from automation.telegram_bot import send_message, send_photo
 from automation.telegram_bot import (
     send_message,
@@ -435,18 +436,24 @@ def download_seo():
 
 
 # -----------------------------------
-# TELEGRAM MEMORY
+# APP INIT
 # -----------------------------------
 
-user_state = {}
-user_data = {}
+app = Flask(__name__)
+
+ANALYTICS_FILE = "analytics_data.json"
+USAGE_FILE = "api_usage.json"
+
+# -----------------------------------
+# BLOG PILLARS
+# -----------------------------------
 
 PILLARS = [
-    "Social Media Marketing",
-    "AI Strategy",
     "Local SEO",
     "Lead Gen",
-    "Website Optimization",
+    "AI Strategy",
+    "Social Media Marketing",
+    "Website Optimization"
 ]
 
 CONTENT_INTENTS = [
@@ -454,9 +461,15 @@ CONTENT_INTENTS = [
     "Conversion",
     "Authority",
     "SEO",
-    "Engagement",
+    "Engagement"
 ]
 
+# -----------------------------------
+# TELEGRAM MEMORY
+# -----------------------------------
+
+user_state = {}
+user_data = {}
 
 # -----------------------------------
 # TOKEN USAGE
@@ -477,6 +490,49 @@ def get_today_token_usage():
 
     return 0
 
+# -----------------------------------
+# CREATE WORD FILE WITH IMAGE
+# -----------------------------------
+
+def create_word_file(title, blog_content, image_path):
+
+    document = Document()
+
+    document.add_heading(title, level=0)
+
+    # Add hero image
+    if image_path and os.path.exists(image_path):
+        document.add_picture(image_path, width=Inches(6))
+
+    lines = blog_content.split("\n")
+
+    for line in lines:
+
+        line = line.strip()
+
+        if not line:
+            continue
+
+        if line.startswith("# "):
+            document.add_heading(line.replace("# ", ""), level=1)
+
+        elif line.startswith("## "):
+            document.add_heading(line.replace("## ", ""), level=2)
+
+        elif line.startswith("### "):
+            document.add_heading(line.replace("### ", ""), level=3)
+
+        else:
+            document.add_paragraph(line)
+
+    safe_title = title.replace(" ", "_").replace("/", "").replace(":", "")
+
+    file_path = f"{safe_title}.docx"
+
+    document.save(file_path)
+
+    return file_path
+
 
 # -----------------------------------
 # HOME
@@ -484,7 +540,54 @@ def get_today_token_usage():
 
 @app.route("/")
 def home():
-    return "AI Blog SuperAgent Running 🚀"
+    return "🚀 AI Blog SuperAgent Running"
+
+
+# -----------------------------------
+# WEBSITE BLOG GENERATOR
+# -----------------------------------
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+
+    if request.method == "POST":
+
+        pillar = request.form.get("pillar")
+        custom_topic = request.form.get("custom_topic")
+        intent = request.form.get("intent")
+
+        topic = custom_topic if custom_topic else pillar
+
+        # Generate Blog
+        blog = generate_blog(topic, pillar, intent)
+
+        # Generate Image
+        image_path, image_tokens = generate_gemini_image(topic)
+
+        # Word export
+        create_word_file(topic, blog, image_path)
+
+        return render_template(
+            "result.html",
+            blog=markdown.markdown(blog),
+            image_path=image_path,
+            image_tokens=image_tokens
+        )
+
+    return render_template("index.html", pillars=PILLARS)
+
+
+# -----------------------------------
+# DOWNLOAD BLOG
+# -----------------------------------
+
+@app.route("/download-blog")
+def download_blog():
+
+    if os.path.exists("generated_blog.docx"):
+        return send_file("generated_blog.docx", as_attachment=True)
+
+    return "File not found"
 
 
 # -----------------------------------
@@ -495,6 +598,7 @@ def home():
 def telegram():
 
     data = request.json
+
     print("Incoming:", data)
 
     if "callback_query" in data:
@@ -507,10 +611,8 @@ def telegram():
 
         answer_callback(callback_id)
 
-        print("Button clicked:", callback_data)
-
         # -----------------------------------
-        # PILLAR SELECTED
+        # PILLAR SELECT
         # -----------------------------------
 
         if callback_data.startswith("pillar:"):
@@ -526,7 +628,7 @@ def telegram():
 
             send_buttons(
                 chat_id,
-                f"Pillar Selected: {pillar}\n\nChoose Topic Mode",
+                f"Pillar Selected: {pillar}",
                 buttons
             )
 
@@ -559,34 +661,14 @@ def telegram():
 
             user_data[chat_id]["topics"] = clean_topics
 
-            topics_text = "Choose a Topic\n\n"
-
-            for i, topic in enumerate(clean_topics[:5]):
-                topics_text += f"{i+1}. {topic}\n\n"
-
             buttons = []
 
             for i in range(min(5, len(clean_topics))):
                 buttons.append([
-                    {
-                        "text": f"{i+1}",
-                        "callback_data": f"topic_{i}"
-                    }
+                    {"text": f"{i+1}", "callback_data": f"topic_{i}"}
                 ])
 
-            send_buttons(chat_id, topics_text, buttons)
-
-            return "ok"
-
-        # -----------------------------------
-        # CUSTOM TOPIC
-        # -----------------------------------
-
-        if callback_data == "topic:custom":
-
-            user_state[chat_id] = "custom_topic"
-
-            send_message(chat_id, "Send your custom topic")
+            send_buttons(chat_id, "Choose Topic", buttons)
 
             return "ok"
 
@@ -609,12 +691,12 @@ def telegram():
                     {"text": intent, "callback_data": f"intent:{intent}"}
                 ])
 
-            send_buttons(chat_id, "Select Content Intent", buttons)
+            send_buttons(chat_id, "Select Intent", buttons)
 
             return "ok"
 
         # -----------------------------------
-        # INTENT SELECTED
+        # INTENT SELECT
         # -----------------------------------
 
         if callback_data.startswith("intent:"):
@@ -624,15 +706,11 @@ def telegram():
             user_data[chat_id]["intent"] = intent
 
             buttons = [[{
-                "text": "Generate & Humanize Blog",
+                "text": "Generate Blog",
                 "callback_data": "generate_blog"
             }]]
 
-            send_buttons(
-                chat_id,
-                f"Intent Selected: {intent}",
-                buttons
-            )
+            send_buttons(chat_id, "Generate Blog", buttons)
 
             return "ok"
 
@@ -650,7 +728,8 @@ def telegram():
 
             blog_content = generate_blog(topic, pillar, intent)
 
-            image_path = fetch_image(topic, pillar)
+            # Generate AI Image
+            image_path, image_tokens = generate_gemini_image(topic)
 
             if image_path:
                 send_photo(chat_id, image_path)
@@ -668,7 +747,8 @@ Title: {topic}
 Pillar: {pillar}
 Intent: {intent}
 
-📊 Tokens Used Today: {tokens_used}
+📊 Blog Tokens Used Today: {tokens_used}
+🖼 Image Tokens Used: {image_tokens}
 
 Preview 👇
 
@@ -676,85 +756,10 @@ Preview 👇
 """
             )
 
-            # -----------------------------------
-            # CREATE PROFESSIONAL DOCX
-            # -----------------------------------
-
-            document = Document()
-
-            document.add_heading(topic, level=0)
-
-            lines = blog_content.split("\n")
-
-            for line in lines:
-
-                line = line.strip()
-
-                if not line:
-                    continue
-
-                if line.startswith("# "):
-                    document.add_heading(line.replace("# ", ""), level=1)
-
-                elif line.startswith("## "):
-                    document.add_heading(line.replace("## ", ""), level=2)
-
-                elif line.startswith("### "):
-                    document.add_heading(line.replace("### ", ""), level=3)
-
-                else:
-                    document.add_paragraph(line)
-
-            safe_topic = topic.replace(" ", "_").replace("/", "").replace(":", "")
-
-            file_path = f"{safe_topic}.docx"
-
-            document.save(file_path)
+            # Create DOCX with image
+            file_path = create_word_file(topic, blog_content, image_path)
 
             send_document(chat_id, file_path)
-
-            return "ok"
-
-    # -----------------------------------
-    # TEXT MESSAGE
-    # -----------------------------------
-
-    elif "message" in data:
-
-        chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text", "")
-
-        state = user_state.get(chat_id)
-
-        if text == "/start":
-
-            buttons = []
-
-            for p in PILLARS:
-                buttons.append([
-                    {"text": p, "callback_data": f"pillar:{p}"}
-                ])
-
-            send_buttons(
-                chat_id,
-                "🚀 AI Blog Agent\n\nSelect Pillar",
-                buttons
-            )
-
-            return "ok"
-
-        if state == "custom_topic":
-
-            user_data[chat_id]["topic"] = text
-
-            buttons = []
-
-            for intent in CONTENT_INTENTS:
-                buttons.append([
-                    {"text": intent, "callback_data": f"intent:{intent}"}
-                ])
-
-            send_buttons(chat_id, "Select Content Intent", buttons)
 
             return "ok"
 
@@ -762,7 +767,7 @@ Preview 👇
 
 
 # -----------------------------------
-# KEEP SERVER AWAKE
+# KEEP SERVER ALIVE
 # -----------------------------------
 
 def keep_alive():
@@ -771,6 +776,7 @@ def keep_alive():
 
         try:
             requests.get("https://shivam-blog-superagent-7.onrender.com")
+
             print("Server pinged")
 
         except Exception as e:
