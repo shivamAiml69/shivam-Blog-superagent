@@ -691,6 +691,11 @@ def telegram():
 
                 blog_content = generate_blog(topic, pillar, intent)
 
+                blog_content = clean_ai_garbage(blog_content)
+
+                if blog_incomplete(blog_content):
+                    blog_content = continue_blog(blog_content)
+
                 # Generate image
                 image_path = generate_blog_image(topic)
 
