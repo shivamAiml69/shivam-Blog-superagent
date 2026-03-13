@@ -2,9 +2,34 @@ import os
 import requests
 import uuid
 import base64
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 FLUX_API_KEY = os.getenv("FLUX_API_KEY")
 
+# Ensure temp folder exists
+os.makedirs("temp_images", exist_ok=True)
+
+# -----------------------------------
+# Session with retry (faster + stable)
+# -----------------------------------
+
+session = requests.Session()
+
+retry = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504]
+)
+
+adapter = HTTPAdapter(max_retries=retry)
+
+session.mount("https://", adapter)
+session.mount("http://", adapter)
+
+# -----------------------------------
+# Flux Image Generator
+# -----------------------------------
 
 def generate_blog_image(topic):
 
@@ -27,12 +52,17 @@ def generate_blog_image(topic):
         "prompt": prompt,
         "width": 1024,
         "height": 1024,
-        "n": 2   # 🔥 generate 2 images instead of 1
+        "n": 2   # generate 2 images for reliability
     }
 
     try:
 
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response = session.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
 
         print("Flux status:", response.status_code)
 
@@ -46,9 +76,10 @@ def generate_blog_image(topic):
             print("Invalid Flux response:", data)
             return None
 
-        os.makedirs("temp_images", exist_ok=True)
+        # -----------------------------------
+        # Try each generated image
+        # -----------------------------------
 
-        # 🔥 try each generated image
         for img in data["data"]:
 
             image_base64 = img.get("b64_json")
@@ -60,10 +91,24 @@ def generate_blog_image(topic):
 
             # Skip corrupted images
             if len(image_bytes) < 1000:
-                print("Skipping invalid image")
+                print("Skipping corrupted image")
                 continue
 
-            file_path = f"temp_images/{uuid.uuid4()}.png"
+            # -----------------------------------
+            # Detect image type (FIX 1)
+            # -----------------------------------
+
+            if image_bytes.startswith(b'\xff\xd8'):
+                ext = "jpg"
+
+            elif image_bytes.startswith(b'\x89PNG'):
+                ext = "png"
+
+            else:
+                print("Unknown image format")
+                continue
+
+            file_path = f"temp_images/{uuid.uuid4()}.{ext}"
 
             with open(file_path, "wb") as f:
                 f.write(image_bytes)
@@ -77,6 +122,6 @@ def generate_blog_image(topic):
 
     except Exception as e:
 
-        print("Flux generation error:", str(e))
+        print("Flux generation error:", e)
 
         return None
