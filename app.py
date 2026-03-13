@@ -90,6 +90,8 @@ def create_word_file(title, blog_content, image_path=None):
     # Add hero image if available
     if image_path and os.path.exists(image_path):
         document.add_picture(image_path, width=Inches(6))
+    else:
+        print("⚠️ Image not available, skipping image insertion")
 
     lines = blog_content.split("\n")
 

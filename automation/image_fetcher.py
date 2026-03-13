@@ -5,6 +5,7 @@ import base64
 
 FLUX_API_KEY = os.getenv("FLUX_API_KEY")
 
+
 def generate_blog_image(topic):
 
     prompt = f"""
@@ -29,21 +30,37 @@ def generate_blog_image(topic):
         "n": 1
     }
 
-    response = requests.post(url, headers=headers, json=payload)
+    try:
 
-    if response.status_code != 200:
-        raise Exception(f"Flux API Error: {response.text}")
+        response = requests.post(url, headers=headers, json=payload)
 
-    data = response.json()
+        print("Flux status:", response.status_code)
 
-    image_base64 = data["data"][0]["b64_json"]
-    image_bytes = base64.b64decode(image_base64)
+        if response.status_code != 200:
+            print("Flux API error:", response.text)
+            return None
 
-    os.makedirs("temp_images", exist_ok=True)
+        data = response.json()
 
-    file_path = f"temp_images/{uuid.uuid4()}.png"
+        if "data" not in data:
+            print("Invalid Flux response:", data)
+            return None
 
-    with open(file_path, "wb") as f:
-        f.write(image_bytes)
+        image_base64 = data["data"][0]["b64_json"]
 
-    return file_path
+        image_bytes = base64.b64decode(image_base64)
+
+        os.makedirs("temp_images", exist_ok=True)
+
+        file_path = f"temp_images/{uuid.uuid4()}.png"
+
+        with open(file_path, "wb") as f:
+            f.write(image_bytes)
+
+        return file_path
+
+    except Exception as e:
+
+        print("Flux generation error:", str(e))
+
+        return None
