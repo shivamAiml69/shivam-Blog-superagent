@@ -85,16 +85,23 @@ user_data = {}
 # 🧠 Create Word File with Image
 # -----------------------------------
 
+from PIL import Image
+
 def create_word_file(title, blog_content, image_path=None):
 
     document = Document()
-
     document.add_heading(title, level=0)
 
     if image_path and os.path.exists(image_path):
-        document.add_picture(image_path, width=Inches(6))
-    else:
-        print("⚠️ Image not available, skipping image insertion")
+
+        try:
+            with Image.open(image_path) as img:
+                img.verify()
+
+            document.add_picture(image_path, width=Inches(6))
+
+        except Exception as e:
+            print("⚠️ Invalid image skipped:", e)
 
     lines = blog_content.split("\n")
 
@@ -119,10 +126,10 @@ def create_word_file(title, blog_content, image_path=None):
 
     safe_title = title.replace(" ", "_").replace("/", "").replace(":", "")
     file_path = f"{safe_title}.docx"
+
     document.save(file_path)
 
     return file_path
-
 
 # -----------------------------------
 # 🖼 Async Image Generator (from file 2)
@@ -515,7 +522,7 @@ def download_seo():
 
 
 # -----------------------------------
-# 🤖 Telegram Webhook (from file 1)
+# 🤖 Telegram Webhook
 # -----------------------------------
 
 @app.route("/telegram", methods=["POST"])
@@ -524,6 +531,37 @@ def telegram():
     data = request.json
 
     print("Incoming:", data)
+
+    # -----------------------------------
+    # Handle normal messages (/start)
+    # -----------------------------------
+
+    if "message" in data:
+
+        message = data["message"]
+        chat_id = message["chat"]["id"]
+        text = message.get("text", "")
+
+        if text == "/start":
+
+            buttons = []
+
+            for p in PILLARS:
+                buttons.append([
+                    {"text": p, "callback_data": f"pillar:{p}"}
+                ])
+
+            send_buttons(
+                chat_id,
+                "🚀 Welcome to AI Blog SuperAgent\n\nChoose Content Pillar:",
+                buttons
+            )
+
+            return "ok"
+
+    # -----------------------------------
+    # Handle button callbacks
+    # -----------------------------------
 
     if "callback_query" in data:
 
@@ -534,10 +572,14 @@ def telegram():
 
         answer_callback(callback_id)
 
-        # Pillar Select
+        # -----------------------------------
+        # Pillar Selected
+        # -----------------------------------
+
         if callback_data.startswith("pillar:"):
 
             pillar = callback_data.split(":")[1]
+
             user_data[chat_id] = {"pillar": pillar}
 
             buttons = [
@@ -545,83 +587,120 @@ def telegram():
                 [{"text": "Custom Topic", "callback_data": "topic:custom"}]
             ]
 
-            send_buttons(chat_id, f"Pillar Selected: {pillar}", buttons)
+            send_buttons(chat_id, f"📊 Pillar Selected: {pillar}", buttons)
 
             return "ok"
 
-        # Topic Suggestion
+        # -----------------------------------
+        # Suggest Topics
+        # -----------------------------------
+
         if callback_data == "topic:suggest":
 
             pillar = user_data[chat_id]["pillar"]
+
             topics_raw = suggest_topics(pillar, "Educational", None)
+
             topics_list = topics_raw.split("\n")
 
             clean_topics = []
+
             for t in topics_list:
+
                 t = t.strip()
+
                 if not t:
                     continue
+
                 t = t.lstrip("1234567890.- ")
+
                 clean_topics.append(t)
 
             user_data[chat_id]["topics"] = clean_topics
 
             buttons = []
-            for i in range(min(5, len(clean_topics))):
-                buttons.append([{"text": f"{i+1}", "callback_data": f"topic_{i}"}])
 
-            send_buttons(chat_id, "Choose Topic", buttons)
+            for i in range(min(5, len(clean_topics))):
+
+                buttons.append([
+                    {"text": clean_topics[i][:40], "callback_data": f"topic_{i}"}
+                ])
+
+            send_buttons(chat_id, "🧠 Choose Topic:", buttons)
 
             return "ok"
 
+        # -----------------------------------
         # Topic Selected
+        # -----------------------------------
+
         if callback_data.startswith("topic_"):
 
             index = int(callback_data.split("_")[1])
+
             topic = user_data[chat_id]["topics"][index]
+
             user_data[chat_id]["topic"] = topic
 
             buttons = []
-            for intent in CONTENT_INTENTS:
-                buttons.append([{"text": intent, "callback_data": f"intent:{intent}"}])
 
-            send_buttons(chat_id, "Select Intent", buttons)
+            for intent in CONTENT_INTENTS:
+
+                buttons.append([
+                    {"text": intent, "callback_data": f"intent:{intent}"}
+                ])
+
+            send_buttons(chat_id, f"📝 Topic Selected:\n\n{topic}\n\nChoose Intent:", buttons)
 
             return "ok"
 
-        # Intent Select
+        # -----------------------------------
+        # Intent Selected
+        # -----------------------------------
+
         if callback_data.startswith("intent:"):
 
             intent = callback_data.split(":")[1]
+
             user_data[chat_id]["intent"] = intent
 
-            buttons = [[{"text": "Generate Blog", "callback_data": "generate_blog"}]]
-            send_buttons(chat_id, "Generate Blog", buttons)
+            buttons = [[
+                {"text": "🚀 Generate Blog", "callback_data": "generate_blog"}
+            ]]
+
+            send_buttons(chat_id, f"Intent Selected: {intent}", buttons)
 
             return "ok"
 
+        # -----------------------------------
         # Generate Blog
+        # -----------------------------------
+
         if callback_data == "generate_blog":
 
             topic = user_data[chat_id]["topic"]
             pillar = user_data[chat_id]["pillar"]
             intent = user_data[chat_id]["intent"]
 
-            send_message(chat_id, "🧠 Generating blog...")
+            send_message(chat_id, "🧠 Generating blog... Please wait (~20 seconds)")
 
-            blog_content = generate_blog(topic, pillar, intent)
+            try:
 
-            image_path = generate_blog_image(topic)
+                blog_content = generate_blog(topic, pillar, intent)
 
-            if image_path and os.path.exists(image_path):
-                send_photo(chat_id, image_path)
+                # Generate image
+                image_path = generate_blog_image(topic)
 
-            tokens_used = get_today_token_usage()
-            preview = blog_content[:800]
+                if image_path and os.path.exists(image_path):
+                    send_photo(chat_id, image_path)
 
-            send_message(
-                chat_id,
-                f"""
+                tokens_used = get_today_token_usage()
+
+                preview = blog_content[:800]
+
+                send_message(
+                    chat_id,
+                    f"""
 📝 Blog Generated
 
 Title: {topic}
@@ -634,10 +713,18 @@ Preview 👇
 
 {preview}
 """
-            )
+                )
 
-            file_path = create_word_file(topic, blog_content, image_path)
-            send_document(chat_id, file_path)
+                # Create Word file
+                file_path = create_word_file(topic, blog_content, image_path)
+
+                send_document(chat_id, file_path)
+
+            except Exception as e:
+
+                print("Telegram blog generation error:", e)
+
+                send_message(chat_id, "⚠️ Error generating blog. Please try again.")
 
             return "ok"
 
