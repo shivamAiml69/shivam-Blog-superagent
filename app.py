@@ -92,16 +92,19 @@ def create_word_file(title, blog_content, image_path=None):
     document = Document()
     document.add_heading(title, level=0)
 
+    # ---- Image handling ----
     if image_path and os.path.exists(image_path):
-
         try:
-            with Image.open(image_path) as img:
-                img.verify()
+            img = Image.open(image_path)
 
-            document.add_picture(image_path, width=Inches(6))
+            # Convert to PNG for docx compatibility
+            png_path = image_path + ".png"
+            img.convert("RGB").save(png_path, "PNG")
+
+            document.add_picture(png_path, width=Inches(6))
 
         except Exception as e:
-            print("⚠️ Invalid image skipped:", e)
+            print("⚠️ Image conversion failed:", e)
 
     lines = blog_content.split("\n")
 
@@ -696,7 +699,8 @@ def telegram():
 
                 tokens_used = get_today_token_usage()
 
-                preview = blog_content[:800]
+                # Short preview (500 chars)
+                preview = blog_content[:500]
 
                 send_message(
                     chat_id,
@@ -711,7 +715,9 @@ Intent: {intent}
 
 Preview 👇
 
-{preview}
+{preview}...
+
+📄 Full article attached as Word file.
 """
                 )
 
@@ -719,6 +725,9 @@ Preview 👇
                 file_path = create_word_file(topic, blog_content, image_path)
 
                 send_document(chat_id, file_path)
+
+                # OPTIONAL: send full blog in Telegram
+                # send_long_message(chat_id, blog_content)
 
             except Exception as e:
 

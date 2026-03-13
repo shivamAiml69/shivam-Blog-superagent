@@ -236,10 +236,10 @@
                 </div>
 
                 <div class="section-title">📄 Generated Blog Content</div>
-
-                <!-- Image insertion with condition -->
+                
                 {% if image_path %}
-                <img src="{{ image_path }}" alt="Blog featured image" style="width:100%; border-radius:10px; margin-bottom:20px;">
+                <img src="/image/{{ image_path }}" alt="Blog featured image"
+                style="width:100%; border-radius:10px; margin-bottom:20px;">
                 {% endif %}
 
                 <div class="blog-content">{{ blog|safe }}</div>
