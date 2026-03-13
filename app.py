@@ -49,6 +49,10 @@ app = Flask(__name__)
 ANALYTICS_FILE = "analytics_data.json"
 USAGE_FILE = "api_usage.json"
 
+# Global state for generated files (from file 2)
+generated_word_file = None
+generated_image_path = None
+
 # -----------------------------------
 # Constants
 # -----------------------------------
@@ -87,7 +91,6 @@ def create_word_file(title, blog_content, image_path=None):
 
     document.add_heading(title, level=0)
 
-    # Add hero image if available
     if image_path and os.path.exists(image_path):
         document.add_picture(image_path, width=Inches(6))
     else:
@@ -122,6 +125,15 @@ def create_word_file(title, blog_content, image_path=None):
 
 
 # -----------------------------------
+# 🖼 Async Image Generator (from file 2)
+# -----------------------------------
+
+def generate_image_async(topic):
+    global generated_image_path
+    generated_image_path = generate_blog_image(topic)
+
+
+# -----------------------------------
 # 🧹 Remove AI Garbage Intros
 # -----------------------------------
 
@@ -148,7 +160,7 @@ def clean_ai_garbage(text):
 
 
 # -----------------------------------
-# 🔬 Semantic Depth Audit
+# 🔬 Semantic Depth Audit (from file 1)
 # -----------------------------------
 
 def check_semantic_depth(blog, topic):
@@ -212,7 +224,7 @@ def save_analytics(topic, pillar, intent, read, score):
 
 
 # -----------------------------------
-# 📊 Token Usage Helper
+# 📊 Token Usage Helper (from file 1)
 # -----------------------------------
 
 def get_today_token_usage():
@@ -237,6 +249,9 @@ def get_today_token_usage():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+
+    global generated_word_file
+    global generated_image_path
 
     if request.method == "POST":
 
@@ -276,14 +291,21 @@ Use these to guide the article.
 """
 
         # -----------------------------------
-        # 3️⃣ Initial Blog Generation
+        # 3️⃣ Start Async Image Generation (from file 2)
+        # -----------------------------------
+
+        image_thread = threading.Thread(target=generate_image_async, args=(topic,))
+        image_thread.start()
+
+        # -----------------------------------
+        # 4️⃣ Initial Blog Generation
         # -----------------------------------
 
         blog = generate_blog(topic_context, pillar, intent)
         blog = clean_ai_garbage(blog)
 
         # -----------------------------------
-        # 4️⃣ Autonomous Correction Loop
+        # 5️⃣ Autonomous Correction Loop (from file 1)
         # -----------------------------------
 
         while attempts < max_retries:
@@ -323,26 +345,23 @@ Use these to guide the article.
             blog = clean_ai_garbage(blog)
 
         # -----------------------------------
-        # 🚀 Fix Gemini Truncation
+        # 6️⃣ Fix Gemini Truncation
         # -----------------------------------
 
         if blog_incomplete(blog):
             blog = continue_blog(blog)
 
         # -----------------------------------
-        # 🖼 Generate Blog Image
+        # 7️⃣ Wait for Image Thread & Export
         # -----------------------------------
 
-        image_path = generate_blog_image(topic)
+        image_thread.join()
+        image_path = generated_image_path
+
+        generated_word_file = create_word_file(topic, blog, image_path)
 
         # -----------------------------------
-        # 📄 Word Export
-        # -----------------------------------
-
-        create_word_file(topic, blog, image_path)
-
-        # -----------------------------------
-        # 📊 SEO Analysis
+        # 8️⃣ SEO Analysis
         # -----------------------------------
 
         read = readability_score(blog)
@@ -380,7 +399,16 @@ Use these to guide the article.
 
 
 # -----------------------------------
-# 📉 Developer Analytics
+# 🖼 Image Serving Route (from file 2)
+# -----------------------------------
+
+@app.route("/image/<path:filename>")
+def serve_image(filename):
+    return send_file(filename)
+
+
+# -----------------------------------
+# 📉 Developer Analytics (from file 1)
 # -----------------------------------
 
 @app.route("/analytics")
@@ -390,13 +418,11 @@ def analytics():
 
     usage_stats = {"total_tokens": 0, "models": {}}
 
-    # Token Usage
     if os.path.exists(USAGE_FILE):
         with open(USAGE_FILE, "r") as f:
             full_usage = json.load(f)
             usage_stats = full_usage.get(today_str, {"total_tokens": 0, "models": {}})
 
-    # Blog History
     blogs_history = []
 
     if os.path.exists(ANALYTICS_FILE):
@@ -406,7 +432,6 @@ def analytics():
     blogs_today = len([b for b in blogs_history if today_str in b.get("date", "")])
     monthly_total = len(blogs_history)
 
-    # SEO Metrics
     avg_score = round(
         sum(d["seo_score"] for d in blogs_history) / len(blogs_history), 2
     ) if blogs_history else 0
@@ -419,7 +444,6 @@ def analytics():
         usage_stats.get("total_tokens", 0) / blogs_today
     ) if blogs_today else 0
 
-    # Multi-Key API Limits
     active_keys = len(GEMINI_KEYS)
 
     REQUESTS_PER_KEY = 20
@@ -428,7 +452,6 @@ def analytics():
     combined_rpd_limit = REQUESTS_PER_KEY * active_keys
     combined_tpm_limit = TOKENS_PER_KEY * active_keys
 
-    # Key Health Monitor
     key_health = {}
 
     for i, key in enumerate(GEMINI_KEYS):
@@ -452,7 +475,7 @@ def analytics():
 
 
 # -----------------------------------
-# 💡 Topic Suggester Route
+# 💡 Topic Suggester Route (from file 1)
 # -----------------------------------
 
 @app.route("/suggest-topics", methods=["POST"])
@@ -478,20 +501,21 @@ def suggest():
 @app.route("/download-blog")
 def download_blog():
 
-    if os.path.exists("generated_blog.docx"):
-        return send_file("generated_blog.docx", as_attachment=True)
+    global generated_word_file
+
+    if generated_word_file and os.path.exists(generated_word_file):
+        return send_file(generated_word_file, as_attachment=True)
 
     return "File not found", 404
 
 
 @app.route("/download-seo")
 def download_seo():
-
     return send_file("seo_report.json", as_attachment=True)
 
 
 # -----------------------------------
-# 🤖 Telegram Webhook
+# 🤖 Telegram Webhook (from file 1)
 # -----------------------------------
 
 @app.route("/telegram", methods=["POST"])
@@ -587,7 +611,6 @@ def telegram():
 
             blog_content = generate_blog(topic, pillar, intent)
 
-            # Generate AI Image
             image_path = generate_blog_image(topic)
 
             if image_path and os.path.exists(image_path):
@@ -613,7 +636,6 @@ Preview 👇
 """
             )
 
-            # Create DOCX with image
             file_path = create_word_file(topic, blog_content, image_path)
             send_document(chat_id, file_path)
 
