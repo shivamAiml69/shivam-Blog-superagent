@@ -55,6 +55,8 @@ USAGE_FILE = "api_usage.json"
 # Global state for generated files
 generated_word_file = None
 generated_image_path = None
+generated_instagram_doc = None
+generated_linkedin_doc = None
 
 # -----------------------------------
 # Constants
@@ -305,6 +307,8 @@ def index():
 
     global generated_word_file
     global generated_image_path
+    global generated_instagram_doc
+    global generated_linkedin_doc
 
     if request.method == "POST":
 
@@ -450,17 +454,19 @@ Use these to guide the article.
         instagram_doc = create_social_word_file(
             topic,
             instagram_text,
-            instagram_image,
+            instagram_image if instagram_image else None,
             "Instagram"
         )
+        generated_instagram_doc = instagram_doc
 
         # LinkedIn Word File
         linkedin_doc = create_social_word_file(
             topic,
             linkedin_text,
-            linkedin_image,
+            linkedin_image if linkedin_image else None,
             "LinkedIn"
         )
+        generated_linkedin_doc = linkedin_doc
 
         # -----------------------------------
         # 8️⃣ SEO Analysis
@@ -616,6 +622,22 @@ def download_seo():
     return send_file("seo_report.json", as_attachment=True)
 
 
+@app.route("/download-instagram")
+def download_instagram():
+    global generated_instagram_doc
+    if generated_instagram_doc and os.path.exists(generated_instagram_doc):
+        return send_file(generated_instagram_doc, as_attachment=True)
+    return "File not found", 404
+
+
+@app.route("/download-linkedin")
+def download_linkedin():
+    global generated_linkedin_doc
+    if generated_linkedin_doc and os.path.exists(generated_linkedin_doc):
+        return send_file(generated_linkedin_doc, as_attachment=True)
+    return "File not found", 404
+
+
 # -----------------------------------
 # 🤖 Telegram Webhook
 # -----------------------------------
@@ -624,10 +646,11 @@ def download_seo():
 def telegram():
 
     data = request.json
+
     print("Incoming:", data)
 
     # -----------------------------------
-    # Handle normal messages
+    # Handle normal messages (/start)
     # -----------------------------------
 
     if "message" in data:
@@ -654,7 +677,7 @@ def telegram():
             return "ok"
 
     # -----------------------------------
-    # Handle callback buttons
+    # Handle button callbacks
     # -----------------------------------
 
     if "callback_query" in data:
@@ -767,7 +790,7 @@ def telegram():
             return "ok"
 
         # -----------------------------------
-        # Generate Blog + Social Content
+        # Generate Blog
         # -----------------------------------
 
         if callback_data == "generate_blog":
@@ -780,7 +803,6 @@ def telegram():
 
             try:
 
-                # Generate Blog
                 blog_content = generate_blog(topic, pillar, intent)
 
                 blog_content = clean_ai_garbage(blog_content)
@@ -788,64 +810,15 @@ def telegram():
                 if blog_incomplete(blog_content):
                     blog_content = continue_blog(blog_content)
 
-                # -----------------------------------
-                # Blog Image
-                # -----------------------------------
-
+                # Generate image
                 image_path = generate_blog_image(topic)
 
                 if image_path and os.path.exists(image_path):
                     send_photo(chat_id, image_path)
 
-                # -----------------------------------
-                # Social Posts
-                # -----------------------------------
+                tokens_used = get_today_token_usage()
 
-                social_posts = generate_social_posts(topic, blog_content[:1200])
-
-                instagram_text = ""
-                linkedin_text = ""
-
-                if "LINKEDIN POST" in social_posts:
-
-                    parts = social_posts.split("LINKEDIN POST")
-
-                    instagram_text = parts[0].replace("INSTAGRAM POST", "").strip()
-                    linkedin_text = parts[1].strip()
-
-                else:
-                    instagram_text = social_posts
-
-                # Save TXT
-                with open("instagram_post.txt", "w", encoding="utf-8") as f:
-                    f.write(instagram_text)
-
-                with open("linkedin_post.txt", "w", encoding="utf-8") as f:
-                    f.write(linkedin_text)
-
-                # -----------------------------------
-                # Social Images
-                # -----------------------------------
-
-                instagram_image = generate_blog_image(topic + " instagram post illustration")
-                linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
-
-                # Send Instagram
-                send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
-
-                if instagram_image and os.path.exists(instagram_image):
-                    send_photo(chat_id, instagram_image)
-
-                # Send LinkedIn
-                send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
-
-                if linkedin_image and os.path.exists(linkedin_image):
-                    send_photo(chat_id, linkedin_image)
-
-                # -----------------------------------
-                # Blog Preview
-                # -----------------------------------
-
+                # Short preview (500 chars)
                 preview = blog_content[:500]
 
                 send_message(
@@ -857,35 +830,20 @@ Title: {topic}
 Pillar: {pillar}
 Intent: {intent}
 
+📊 Blog Tokens Used Today: {tokens_used}
+
 Preview 👇
 
 {preview}...
+
+📄 Full article attached as Word file.
 """
                 )
 
-                # -----------------------------------
-                # Create Word Files
-                # -----------------------------------
+                # Create Word file
+                file_path = create_word_file(topic, blog_content, image_path)
 
-                blog_doc = create_word_file(topic, blog_content, image_path)
-
-                instagram_doc = create_social_word_file(
-                    topic,
-                    instagram_text,
-                    instagram_image,
-                    "Instagram"
-                )
-
-                linkedin_doc = create_social_word_file(
-                    topic,
-                    linkedin_text,
-                    linkedin_image,
-                    "LinkedIn"
-                )
-
-                send_document(chat_id, blog_doc)
-                send_document(chat_id, instagram_doc)
-                send_document(chat_id, linkedin_doc)
+                send_document(chat_id, file_path)
 
             except Exception as e:
 
