@@ -30,9 +30,8 @@ from ai_engine.ai_client import BLOCKED_KEYS
 # ✅ CHANGE 1: Updated social import
 from ai_engine.social_media import generate_social_posts
 
-# -----------------------------------
 # Automation Imports
-# -----------------------------------
+
 
 from automation.image_fetcher import generate_blog_image
 from automation.telegram_bot import (
