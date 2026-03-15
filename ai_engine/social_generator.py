@@ -1,4 +1,7 @@
-from ai_engine.ai_client import generate_analysis_content
+import google.generativeai as genai
+import os
+import time
+from ai_engine.setting import GEMINI_KEYS
 
 
 def generate_social_posts(title, summary):
@@ -24,17 +27,19 @@ Blog Summary:
 {summary}
 """
 
-    try:
+    # Try each key until one works
+    for key in GEMINI_KEYS:
+        try:
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel("models/gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            if response.text:
+                return response.text
 
-        result = generate_analysis_content(prompt)
+        except Exception as e:
+            print(f"Social generator key failed: {e}")
+            time.sleep(2)
+            continue
 
-        if result:
-            return result
-
-        return ""
-
-    except Exception as e:
-
-        print("Social generation error:", e)
-
-        return ""
+    print("All keys failed for social generation")
+    return ""
