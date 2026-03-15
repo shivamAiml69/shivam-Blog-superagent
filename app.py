@@ -843,9 +843,9 @@ def telegram():
 
             try:
 
-                # -----------------------------------
-                # Generate Blog
-                # -----------------------------------
+                # -----------------------------
+                # BLOG GENERATION
+                # -----------------------------
 
                 blog_content = generate_blog(topic, pillar, intent)
 
@@ -854,54 +854,18 @@ def telegram():
                 if blog_incomplete(blog_content):
                     blog_content = continue_blog(blog_content)
 
-                # -----------------------------------
-                # Generate Blog Image
-                # -----------------------------------
+                # -----------------------------
+                # BLOG IMAGE
+                # -----------------------------
 
                 blog_image = generate_blog_image(topic)
 
                 if blog_image and os.path.exists(blog_image):
                     send_photo(chat_id, blog_image)
 
-                # -----------------------------------
-                # Generate Instagram Post
-                # -----------------------------------
-
-                instagram_text = generate_social_posts(
-                    topic,
-                    blog_content[:1200] + "\n\nWrite an Instagram caption."
-                )
-
-                instagram_image = generate_blog_image(
-                    topic + " instagram post illustration"
-                )
-
-                send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
-
-                if instagram_image and os.path.exists(instagram_image):
-                    send_photo(chat_id, instagram_image)
-
-                # -----------------------------------
-                # Generate LinkedIn Post
-                # -----------------------------------
-
-                linkedin_text = generate_social_posts(
-                    topic,
-                    blog_content[:1200] + "\n\nWrite a professional LinkedIn post."
-                )
-
-                linkedin_image = generate_blog_image(
-                    topic + " linkedin professional graphic"
-                )
-
-                send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
-
-                if linkedin_image and os.path.exists(linkedin_image):
-                    send_photo(chat_id, linkedin_image)
-
-                # -----------------------------------
+                # -----------------------------
                 # BLOG PREVIEW
-                # -----------------------------------
+                # -----------------------------
 
                 preview = blog_content[:500]
 
@@ -920,18 +884,58 @@ Preview 👇
 """
                 )
 
-                # -----------------------------------
-                # CREATE WORD FILES
-                # -----------------------------------
+                # -----------------------------
+                # BLOG WORD FILE
+                # -----------------------------
 
                 blog_doc = create_word_file(topic, blog_content, blog_image)
 
-                insta_doc = create_social_word_file(
+                send_document(chat_id, blog_doc)
+
+                # -----------------------------
+                # INSTAGRAM POST
+                # -----------------------------
+
+                send_message(chat_id, "📸 Generating Instagram post...")
+
+                instagram_text = generate_social_posts(
+                    topic,
+                    "Write an engaging Instagram caption for this topic:\n\n" + blog_content[:800]
+                )
+
+                send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
+
+                instagram_image = generate_blog_image(topic + " instagram illustration")
+
+                if instagram_image and os.path.exists(instagram_image):
+                    send_photo(chat_id, instagram_image)
+
+                instagram_doc = create_social_word_file(
                     topic,
                     instagram_text,
                     instagram_image,
                     "Instagram"
                 )
+
+                send_document(chat_id, instagram_doc)
+
+                # -----------------------------
+                # LINKEDIN POST
+                # -----------------------------
+
+                send_message(chat_id, "💼 Generating LinkedIn post...")
+
+                linkedin_text = generate_social_posts(
+                    topic,
+                    "Write a professional LinkedIn post for this topic:\n\n" + blog_content[:800]
+                )
+
+                send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
+
+                linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
+
+                if linkedin_image and os.path.exists(linkedin_image):
+                    send_photo(chat_id, linkedin_image)
 
                 linkedin_doc = create_social_word_file(
                     topic,
@@ -940,8 +944,6 @@ Preview 👇
                     "LinkedIn"
                 )
 
-                send_document(chat_id, blog_doc)
-                send_document(chat_id, insta_doc)
                 send_document(chat_id, linkedin_doc)
 
             except Exception as e:
