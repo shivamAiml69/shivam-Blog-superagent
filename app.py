@@ -713,7 +713,7 @@ def telegram():
             return "ok"
 
     # -----------------------------------
-    # Handle callback buttons
+    # Handle button callbacks
     # -----------------------------------
 
     if "callback_query" in data:
@@ -803,7 +803,11 @@ def telegram():
                     {"text": intent, "callback_data": f"intent:{intent}"}
                 ])
 
-            send_buttons(chat_id, f"📝 Topic Selected:\n\n{topic}\n\nChoose Intent:", buttons)
+            send_buttons(
+                chat_id,
+                f"📝 Topic Selected:\n\n{topic}\n\nChoose Intent:",
+                buttons
+            )
 
             return "ok"
 
@@ -826,7 +830,7 @@ def telegram():
             return "ok"
 
         # -----------------------------------
-        # Generate Blog + Social Content
+        # GENERATE BLOG + SOCIAL
         # -----------------------------------
 
         if callback_data == "generate_blog":
@@ -851,43 +855,26 @@ def telegram():
                     blog_content = continue_blog(blog_content)
 
                 # -----------------------------------
-                # Blog Image
+                # Generate Blog Image
                 # -----------------------------------
 
-                image_path = generate_blog_image(topic)
+                blog_image = generate_blog_image(topic)
 
-                if image_path and os.path.exists(image_path):
-                    send_photo(chat_id, image_path)
-
-                # -----------------------------------
-                # Generate Social Posts
-                # -----------------------------------
-
-                social_posts = generate_social_posts(topic, blog_content[:1200])
-
-                instagram_text = ""
-                linkedin_text = ""
-
-                if "LINKEDIN POST" in social_posts:
-
-                    parts = social_posts.split("LINKEDIN POST")
-
-                    instagram_text = parts[0].replace("INSTAGRAM POST", "").strip()
-                    linkedin_text = parts[1].strip()
-
-                else:
-                    instagram_text = social_posts
+                if blog_image and os.path.exists(blog_image):
+                    send_photo(chat_id, blog_image)
 
                 # -----------------------------------
-                # Social Images
+                # Generate Instagram Post
                 # -----------------------------------
 
-                instagram_image = generate_blog_image(topic + " instagram post illustration")
-                linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
+                instagram_text = generate_social_posts(
+                    topic,
+                    blog_content[:1200] + "\n\nWrite an Instagram caption."
+                )
 
-                # -----------------------------------
-                # Send Instagram Post
-                # -----------------------------------
+                instagram_image = generate_blog_image(
+                    topic + " instagram post illustration"
+                )
 
                 send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
 
@@ -895,8 +882,17 @@ def telegram():
                     send_photo(chat_id, instagram_image)
 
                 # -----------------------------------
-                # Send LinkedIn Post
+                # Generate LinkedIn Post
                 # -----------------------------------
+
+                linkedin_text = generate_social_posts(
+                    topic,
+                    blog_content[:1200] + "\n\nWrite a professional LinkedIn post."
+                )
+
+                linkedin_image = generate_blog_image(
+                    topic + " linkedin professional graphic"
+                )
 
                 send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
 
@@ -904,7 +900,7 @@ def telegram():
                     send_photo(chat_id, linkedin_image)
 
                 # -----------------------------------
-                # Blog Preview
+                # BLOG PREVIEW
                 # -----------------------------------
 
                 preview = blog_content[:500]
@@ -925,12 +921,12 @@ Preview 👇
                 )
 
                 # -----------------------------------
-                # Create Word Files
+                # CREATE WORD FILES
                 # -----------------------------------
 
-                blog_doc = create_word_file(topic, blog_content, image_path)
+                blog_doc = create_word_file(topic, blog_content, blog_image)
 
-                instagram_doc = create_social_word_file(
+                insta_doc = create_social_word_file(
                     topic,
                     instagram_text,
                     instagram_image,
@@ -944,19 +940,15 @@ Preview 👇
                     "LinkedIn"
                 )
 
-                # -----------------------------------
-                # Send Word Files
-                # -----------------------------------
-
                 send_document(chat_id, blog_doc)
-                send_document(chat_id, instagram_doc)
+                send_document(chat_id, insta_doc)
                 send_document(chat_id, linkedin_doc)
 
             except Exception as e:
 
-                print("Telegram blog generation error:", e)
+                print("Telegram error:", e)
 
-                send_message(chat_id, "⚠️ Error generating blog. Please try again.")
+                send_message(chat_id, "⚠️ Error generating content.")
 
             return "ok"
 
