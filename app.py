@@ -885,19 +885,21 @@ Preview 👇
                 # Save blog content for social generation
                 user_data[chat_id]["blog"] = blog_content
 
-                # 🔥 Show social media buttons
+            except Exception as e:
+
+                print("Telegram blog generation error:", e)
+
+                send_message(chat_id, "⚠️ Error generating blog. Please try again.")
+
+            # 🔥 Show social media buttons ALWAYS (outside try/except)
+            if user_data[chat_id].get("blog"):
+
                 buttons = [
                     [{"text": "📸 Generate Instagram Post", "callback_data": "generate_instagram"}],
                     [{"text": "💼 Generate LinkedIn Post", "callback_data": "generate_linkedin"}]
                 ]
 
                 send_buttons(chat_id, "✅ Blog ready! Generate social media posts:", buttons)
-
-            except Exception as e:
-
-                print("Telegram blog generation error:", e)
-
-                send_message(chat_id, "⚠️ Error generating blog. Please try again.")
 
             return "ok"
 
