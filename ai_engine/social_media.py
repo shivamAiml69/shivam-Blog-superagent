@@ -1,7 +1,7 @@
-from google import genai
+import requests
 import os
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def generate_social_posts(title, summary):
 
@@ -16,21 +16,31 @@ Blog Summary:
 
 Return two sections:
 
-INSTAGRAM POST
+INSTAGRAM POST:
 - Hook in first line
 - Short paragraphs
 - Emojis
-- 8–12 hashtags
+- 8-12 hashtags
 
-LINKEDIN POST
+LINKEDIN POST:
 - Professional tone
 - Bullet points
 - End with a discussion question
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
-    return response.text
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+
+    r = requests.post(url, json=payload)
+
+    data = r.json()
+
+    try:
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except:
+        return "Social post generation failed"

@@ -2,7 +2,7 @@ Flask
 markdown
 python-docx
 gunicorn
-google-genai
+google-generativeai
 requests
 python-dotenv
 textstat
