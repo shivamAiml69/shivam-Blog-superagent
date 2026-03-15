@@ -139,23 +139,43 @@ def create_word_file(title, blog_content, image_path=None):
 
 
 # ✅ CHANGE 2: New social media Word file generator
-def create_social_word_file(title, content, image_path, platform):
+from PIL import Image
+
+def create_social_word_file(title, post_text, image_path, platform):
 
     document = Document()
-    document.add_heading(f"{platform} Post: {title}", level=0)
 
+    document.add_heading(f"{platform} Post", level=0)
+    document.add_heading(title, level=1)
+
+    # ---- Image handling ----
     if image_path and os.path.exists(image_path):
-        document.add_picture(image_path, width=Inches(6))
+        try:
+            img = Image.open(image_path)
 
-    document.add_paragraph(content)
+            png_path = image_path + ".png"
+            img.convert("RGB").save(png_path, "PNG")
+
+            document.add_picture(png_path, width=Inches(6))
+
+        except Exception as e:
+            print("⚠️ Social image conversion failed:", e)
+
+    # Add text
+    paragraphs = post_text.split("\n")
+
+    for p in paragraphs:
+        p = p.strip()
+        if p:
+            document.add_paragraph(p)
 
     safe_title = title.replace(" ", "_").replace("/", "").replace(":", "")
+
     filename = f"{platform.lower()}_{safe_title}.docx"
 
     document.save(filename)
 
     return filename
-
 
 # -----------------------------------
 # 🖼 Async Image Generator
@@ -604,11 +624,10 @@ def download_seo():
 def telegram():
 
     data = request.json
-
     print("Incoming:", data)
 
     # -----------------------------------
-    # Handle normal messages (/start)
+    # Handle normal messages
     # -----------------------------------
 
     if "message" in data:
@@ -635,7 +654,7 @@ def telegram():
             return "ok"
 
     # -----------------------------------
-    # Handle button callbacks
+    # Handle callback buttons
     # -----------------------------------
 
     if "callback_query" in data:
@@ -748,7 +767,7 @@ def telegram():
             return "ok"
 
         # -----------------------------------
-        # Generate Blog
+        # Generate Blog + Social Content
         # -----------------------------------
 
         if callback_data == "generate_blog":
@@ -761,6 +780,7 @@ def telegram():
 
             try:
 
+                # Generate Blog
                 blog_content = generate_blog(topic, pillar, intent)
 
                 blog_content = clean_ai_garbage(blog_content)
@@ -768,15 +788,64 @@ def telegram():
                 if blog_incomplete(blog_content):
                     blog_content = continue_blog(blog_content)
 
-                # Generate image
+                # -----------------------------------
+                # Blog Image
+                # -----------------------------------
+
                 image_path = generate_blog_image(topic)
 
                 if image_path and os.path.exists(image_path):
                     send_photo(chat_id, image_path)
 
-                tokens_used = get_today_token_usage()
+                # -----------------------------------
+                # Social Posts
+                # -----------------------------------
 
-                # Short preview (500 chars)
+                social_posts = generate_social_posts(topic, blog_content[:1200])
+
+                instagram_text = ""
+                linkedin_text = ""
+
+                if "LINKEDIN POST" in social_posts:
+
+                    parts = social_posts.split("LINKEDIN POST")
+
+                    instagram_text = parts[0].replace("INSTAGRAM POST", "").strip()
+                    linkedin_text = parts[1].strip()
+
+                else:
+                    instagram_text = social_posts
+
+                # Save TXT
+                with open("instagram_post.txt", "w", encoding="utf-8") as f:
+                    f.write(instagram_text)
+
+                with open("linkedin_post.txt", "w", encoding="utf-8") as f:
+                    f.write(linkedin_text)
+
+                # -----------------------------------
+                # Social Images
+                # -----------------------------------
+
+                instagram_image = generate_blog_image(topic + " instagram post illustration")
+                linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
+
+                # Send Instagram
+                send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
+
+                if instagram_image and os.path.exists(instagram_image):
+                    send_photo(chat_id, instagram_image)
+
+                # Send LinkedIn
+                send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
+
+                if linkedin_image and os.path.exists(linkedin_image):
+                    send_photo(chat_id, linkedin_image)
+
+                # -----------------------------------
+                # Blog Preview
+                # -----------------------------------
+
                 preview = blog_content[:500]
 
                 send_message(
@@ -788,20 +857,35 @@ Title: {topic}
 Pillar: {pillar}
 Intent: {intent}
 
-📊 Blog Tokens Used Today: {tokens_used}
-
 Preview 👇
 
 {preview}...
-
-📄 Full article attached as Word file.
 """
                 )
 
-                # Create Word file
-                file_path = create_word_file(topic, blog_content, image_path)
+                # -----------------------------------
+                # Create Word Files
+                # -----------------------------------
 
-                send_document(chat_id, file_path)
+                blog_doc = create_word_file(topic, blog_content, image_path)
+
+                instagram_doc = create_social_word_file(
+                    topic,
+                    instagram_text,
+                    instagram_image,
+                    "Instagram"
+                )
+
+                linkedin_doc = create_social_word_file(
+                    topic,
+                    linkedin_text,
+                    linkedin_image,
+                    "LinkedIn"
+                )
+
+                send_document(chat_id, blog_doc)
+                send_document(chat_id, instagram_doc)
+                send_document(chat_id, linkedin_doc)
 
             except Exception as e:
 
