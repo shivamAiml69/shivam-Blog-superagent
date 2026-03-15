@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 import time
 from ai_engine.setting import GEMINI_KEYS
 from ai_engine.usage_tracker import log_token_usage

@@ -27,6 +27,9 @@ from ai_engine.continuation import continue_blog
 from ai_engine.setting import GEMINI_KEYS
 from ai_engine.ai_client import BLOCKED_KEYS
 
+# ✅ CHANGE 1: Updated social import
+from ai_engine.social_media import generate_social_posts
+
 # -----------------------------------
 # Automation Imports
 # -----------------------------------
@@ -49,7 +52,7 @@ app = Flask(__name__)
 ANALYTICS_FILE = "analytics_data.json"
 USAGE_FILE = "api_usage.json"
 
-# Global state for generated files (from file 2)
+# Global state for generated files
 generated_word_file = None
 generated_image_path = None
 
@@ -134,8 +137,28 @@ def create_word_file(title, blog_content, image_path=None):
 
     return file_path
 
+
+# ✅ CHANGE 2: New social media Word file generator
+def create_social_word_file(title, content, image_path, platform):
+
+    document = Document()
+    document.add_heading(f"{platform} Post: {title}", level=0)
+
+    if image_path and os.path.exists(image_path):
+        document.add_picture(image_path, width=Inches(6))
+
+    document.add_paragraph(content)
+
+    safe_title = title.replace(" ", "_").replace("/", "").replace(":", "")
+    filename = f"{platform.lower()}_{safe_title}.docx"
+
+    document.save(filename)
+
+    return filename
+
+
 # -----------------------------------
-# 🖼 Async Image Generator (from file 2)
+# 🖼 Async Image Generator
 # -----------------------------------
 
 def generate_image_async(topic):
@@ -170,7 +193,7 @@ def clean_ai_garbage(text):
 
 
 # -----------------------------------
-# 🔬 Semantic Depth Audit (from file 1)
+# 🔬 Semantic Depth Audit
 # -----------------------------------
 
 def check_semantic_depth(blog, topic):
@@ -234,7 +257,7 @@ def save_analytics(topic, pillar, intent, read, score):
 
 
 # -----------------------------------
-# 📊 Token Usage Helper (from file 1)
+# 📊 Token Usage Helper
 # -----------------------------------
 
 def get_today_token_usage():
@@ -301,7 +324,7 @@ Use these to guide the article.
 """
 
         # -----------------------------------
-        # 3️⃣ Start Async Image Generation (from file 2)
+        # 3️⃣ Start Async Image Generation
         # -----------------------------------
 
         image_thread = threading.Thread(target=generate_image_async, args=(topic,))
@@ -315,7 +338,7 @@ Use these to guide the article.
         blog = clean_ai_garbage(blog)
 
         # -----------------------------------
-        # 5️⃣ Autonomous Correction Loop (from file 1)
+        # 5️⃣ Autonomous Correction Loop
         # -----------------------------------
 
         while attempts < max_retries:
@@ -362,13 +385,62 @@ Use these to guide the article.
             blog = continue_blog(blog)
 
         # -----------------------------------
-        # 7️⃣ Wait for Image Thread & Export
+        # ✅ CHANGE 3: 6.5 Generate Social Media Content
+        # -----------------------------------
+
+        social_posts = generate_social_posts(topic, blog[:1200])
+
+        instagram_text = ""
+        linkedin_text = ""
+
+        if "LINKEDIN POST" in social_posts:
+            parts = social_posts.split("LINKEDIN POST")
+
+            instagram_text = parts[0].replace("INSTAGRAM POST", "").strip()
+            linkedin_text = parts[1].strip()
+        else:
+            instagram_text = social_posts
+
+        # Save TXT files
+        with open("instagram_post.txt", "w", encoding="utf-8") as f:
+            f.write(instagram_text)
+
+        with open("linkedin_post.txt", "w", encoding="utf-8") as f:
+            f.write(linkedin_text)
+
+        # -----------------------------------
+        # ✅ CHANGE 4: 7️⃣ Wait for Image Thread & Generate Social Images
         # -----------------------------------
 
         image_thread.join()
         image_path = generated_image_path
 
+        # Generate social images
+        instagram_image = generate_blog_image(topic + " instagram post illustration")
+        linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
+
+        # -----------------------------------
+        # ✅ CHANGE 5: Export All Word Files
+        # -----------------------------------
+
+        # Blog Word File
         generated_word_file = create_word_file(topic, blog, image_path)
+
+        # Instagram Word File
+        instagram_doc = create_social_word_file(
+            topic,
+            instagram_text,
+            instagram_image,
+            "Instagram"
+        )
+
+        # LinkedIn Word File
+        linkedin_doc = create_social_word_file(
+            topic,
+            linkedin_text,
+            linkedin_image,
+            "LinkedIn"
+        )
 
         # -----------------------------------
         # 8️⃣ SEO Analysis
@@ -409,7 +481,7 @@ Use these to guide the article.
 
 
 # -----------------------------------
-# 🖼 Image Serving Route (from file 2)
+# 🖼 Image Serving Route
 # -----------------------------------
 
 @app.route("/image/<path:filename>")
@@ -418,7 +490,7 @@ def serve_image(filename):
 
 
 # -----------------------------------
-# 📉 Developer Analytics (from file 1)
+# 📉 Developer Analytics
 # -----------------------------------
 
 @app.route("/analytics")
@@ -485,7 +557,7 @@ def analytics():
 
 
 # -----------------------------------
-# 💡 Topic Suggester Route (from file 1)
+# 💡 Topic Suggester Route
 # -----------------------------------
 
 @app.route("/suggest-topics", methods=["POST"])
@@ -730,9 +802,6 @@ Preview 👇
                 file_path = create_word_file(topic, blog_content, image_path)
 
                 send_document(chat_id, file_path)
-
-                # OPTIONAL: send full blog in Telegram
-                # send_long_message(chat_id, blog_content)
 
             except Exception as e:
 
