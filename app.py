@@ -28,10 +28,11 @@ from ai_engine.setting import GEMINI_KEYS
 from ai_engine.ai_client import BLOCKED_KEYS
 
 # ✅ CHANGE 1: Updated social import
-from ai_engine.social_media import generate_social_posts
+from ai_engine.social_generator import generate_social_posts
 
+# -----------------------------------
 # Automation Imports
-
+# -----------------------------------
 
 from automation.image_fetcher import generate_blog_image
 from automation.telegram_bot import (
@@ -177,6 +178,42 @@ def create_social_word_file(title, post_text, image_path, platform):
     document.save(filename)
 
     return filename
+
+# -----------------------------------
+# 🖼 Async Image Generator
+# -----------------------------------
+
+def generate_image_async(topic):
+    global generated_image_path
+    generated_image_path = generate_blog_image(topic)
+
+
+# -----------------------------------
+# 🧹 Remove AI Garbage Intros
+# -----------------------------------
+
+def clean_ai_garbage(text):
+
+    lines = text.split('\n')
+    cleaned_lines = []
+
+    garbage_phrases = [
+        "here is",
+        "here's a",
+        "certainly",
+        "re-written version",
+        "incorporating your",
+        "revised article"
+    ]
+
+    for line in lines:
+        if any(p in line.lower() for p in garbage_phrases) and len(cleaned_lines) < 4:
+            continue
+        cleaned_lines.append(line)
+
+    return '\n'.join(cleaned_lines).strip()
+
+
 
 # -----------------------------------
 # 🖼 Async Image Generator
@@ -413,16 +450,24 @@ Use these to guide the article.
 
         social_posts = generate_social_posts(topic, blog[:1200])
 
+        print("SOCIAL POSTS:", social_posts)
+
         instagram_text = ""
         linkedin_text = ""
 
-        if "LINKEDIN POST" in social_posts:
-            parts = social_posts.split("LINKEDIN POST")
+        if social_posts:
 
-            instagram_text = parts[0].replace("INSTAGRAM POST", "").strip()
-            linkedin_text = parts[1].strip()
-        else:
-            instagram_text = social_posts
+            if "LINKEDIN" in social_posts.upper():
+
+                parts = social_posts.split("LINKEDIN")
+
+                instagram_text = parts[0].replace("INSTAGRAM POST", "").replace("INSTAGRAM", "").strip()
+
+                linkedin_text = parts[-1].strip()
+
+            else:
+
+                instagram_text = social_posts
 
         # Save TXT files
         with open("instagram_post.txt", "w", encoding="utf-8") as f:
@@ -494,6 +539,10 @@ Use these to guide the article.
         return render_template(
             "result.html",
             blog=markdown.markdown(blog),
+            instagram_post=instagram_text,
+            linkedin_post=linkedin_text,
+            instagram_image=instagram_image,
+            linkedin_image=linkedin_image,
             readability=read,
             seo_score=score,
             ai_detection_score=ai_score,
@@ -621,6 +670,30 @@ def download_seo():
     return send_file("seo_report.json", as_attachment=True)
 
 
+# Routes matching HTML buttons exactly (with slash)
+@app.route("/download/instagram")
+def download_instagram_slash():
+    global generated_instagram_doc
+    if generated_instagram_doc and os.path.exists(generated_instagram_doc):
+        return send_file(generated_instagram_doc, as_attachment=True)
+    # Fallback to txt file
+    if os.path.exists("instagram_post.txt"):
+        return send_file("instagram_post.txt", as_attachment=True)
+    return "Instagram file not found", 404
+
+
+@app.route("/download/linkedin")
+def download_linkedin_slash():
+    global generated_linkedin_doc
+    if generated_linkedin_doc and os.path.exists(generated_linkedin_doc):
+        return send_file(generated_linkedin_doc, as_attachment=True)
+    # Fallback to txt file
+    if os.path.exists("linkedin_post.txt"):
+        return send_file("linkedin_post.txt", as_attachment=True)
+    return "LinkedIn file not found", 404
+
+
+# Legacy routes (keep for backward compatibility)
 @app.route("/download-instagram")
 def download_instagram():
     global generated_instagram_doc
