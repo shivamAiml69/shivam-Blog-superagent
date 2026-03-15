@@ -179,41 +179,6 @@ def create_social_word_file(title, post_text, image_path, platform):
 
     return filename
 
-# -----------------------------------
-# 🖼 Async Image Generator
-# -----------------------------------
-
-def generate_image_async(topic):
-    global generated_image_path
-    generated_image_path = generate_blog_image(topic)
-
-
-# -----------------------------------
-# 🧹 Remove AI Garbage Intros
-# -----------------------------------
-
-def clean_ai_garbage(text):
-
-    lines = text.split('\n')
-    cleaned_lines = []
-
-    garbage_phrases = [
-        "here is",
-        "here's a",
-        "certainly",
-        "re-written version",
-        "incorporating your",
-        "revised article"
-    ]
-
-    for line in lines:
-        if any(p in line.lower() for p in garbage_phrases) and len(cleaned_lines) < 4:
-            continue
-        cleaned_lines.append(line)
-
-    return '\n'.join(cleaned_lines).strip()
-
-
 
 # -----------------------------------
 # 🖼 Async Image Generator
@@ -917,11 +882,116 @@ Preview 👇
 
                 send_document(chat_id, file_path)
 
+                # Save blog content for social generation
+                user_data[chat_id]["blog"] = blog_content
+
+                # 🔥 Show social media buttons
+                buttons = [
+                    [{"text": "📸 Generate Instagram Post", "callback_data": "generate_instagram"}],
+                    [{"text": "💼 Generate LinkedIn Post", "callback_data": "generate_linkedin"}]
+                ]
+
+                send_buttons(chat_id, "✅ Blog ready! Generate social media posts:", buttons)
+
             except Exception as e:
 
                 print("Telegram blog generation error:", e)
 
                 send_message(chat_id, "⚠️ Error generating blog. Please try again.")
+
+            return "ok"
+
+        # -----------------------------------
+        # Generate Instagram Post
+        # -----------------------------------
+
+        if callback_data == "generate_instagram":
+
+            topic = user_data[chat_id]["topic"]
+            blog_content = user_data[chat_id].get("blog", "")
+
+            send_message(chat_id, "📸 Generating Instagram post...")
+
+            try:
+
+                social = generate_social_posts(topic, blog_content[:1200])
+
+                instagram_text = ""
+
+                if social:
+                    if "LINKEDIN" in social.upper():
+                        parts = social.split("LINKEDIN")
+                        instagram_text = parts[0].replace("INSTAGRAM POST", "").replace("INSTAGRAM", "").strip()
+                    else:
+                        instagram_text = social
+
+                if instagram_text:
+                    send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
+                else:
+                    send_message(chat_id, "⚠️ Could not generate Instagram post.")
+                    return "ok"
+
+                image = generate_blog_image(topic + " instagram post illustration")
+
+                if image and os.path.exists(image):
+                    send_photo(chat_id, image)
+
+                doc = create_social_word_file(topic, instagram_text, image if image else None, "Instagram")
+
+                send_document(chat_id, doc)
+
+            except Exception as e:
+
+                print("Instagram generation error:", e)
+
+                send_message(chat_id, "⚠️ Error generating Instagram post.")
+
+            return "ok"
+
+        # -----------------------------------
+        # Generate LinkedIn Post
+        # -----------------------------------
+
+        if callback_data == "generate_linkedin":
+
+            topic = user_data[chat_id]["topic"]
+            blog_content = user_data[chat_id].get("blog", "")
+
+            send_message(chat_id, "💼 Generating LinkedIn post...")
+
+            try:
+
+                social = generate_social_posts(topic, blog_content[:1200])
+
+                linkedin_text = ""
+
+                if social:
+                    if "LINKEDIN" in social.upper():
+                        parts = social.split("LINKEDIN")
+                        linkedin_text = parts[-1].strip()
+                    else:
+                        linkedin_text = social
+
+                if linkedin_text:
+                    send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
+                else:
+                    send_message(chat_id, "⚠️ Could not generate LinkedIn post.")
+                    return "ok"
+
+                image = generate_blog_image(topic + " linkedin professional graphic")
+
+                if image and os.path.exists(image):
+                    send_photo(chat_id, image)
+
+                doc = create_social_word_file(topic, linkedin_text, image if image else None, "LinkedIn")
+
+                send_document(chat_id, doc)
+
+            except Exception as e:
+
+                print("LinkedIn generation error:", e)
+
+                send_message(chat_id, "⚠️ Error generating LinkedIn post.")
 
             return "ok"
 
