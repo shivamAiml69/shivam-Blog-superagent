@@ -683,7 +683,6 @@ def download_linkedin():
 def telegram():
 
     data = request.json
-
     print("Incoming:", data)
 
     # -----------------------------------
@@ -751,7 +750,7 @@ def telegram():
 
         if callback_data == "topic:suggest":
 
-            pillar = user_data[chat_id]["pillar"]
+            pillar = user_data.get(chat_id, {}).get("pillar")
 
             topics_raw = suggest_topics(pillar, "Educational", None)
 
@@ -832,9 +831,9 @@ def telegram():
 
         if callback_data == "generate_blog":
 
-            topic = user_data[chat_id]["topic"]
-            pillar = user_data[chat_id]["pillar"]
-            intent = user_data[chat_id]["intent"]
+            topic = user_data.get(chat_id, {}).get("topic")
+            pillar = user_data.get(chat_id, {}).get("pillar")
+            intent = user_data.get(chat_id, {}).get("intent")
 
             send_message(chat_id, "🧠 Generating blog... Please wait (~20 seconds)")
 
@@ -855,7 +854,6 @@ def telegram():
 
                 tokens_used = get_today_token_usage()
 
-                # Short preview (500 chars)
                 preview = blog_content[:500]
 
                 send_message(
@@ -882,24 +880,29 @@ Preview 👇
 
                 send_document(chat_id, file_path)
 
-                # Save blog content for social generation
+                # Save blog for social posts
                 user_data[chat_id]["blog"] = blog_content
+
+                # -----------------------------------
+                # Show next actions
+                # -----------------------------------
+
+                buttons = [
+                    [{"text": "📸 Instagram Post", "callback_data": "generate_instagram"}],
+                    [{"text": "💼 LinkedIn Post", "callback_data": "generate_linkedin"}]
+                ]
+
+                send_buttons(
+                    chat_id,
+                    "✅ Blog Generated Successfully\n\nWhat do you want to do next?",
+                    buttons
+                )
 
             except Exception as e:
 
                 print("Telegram blog generation error:", e)
 
                 send_message(chat_id, "⚠️ Error generating blog. Please try again.")
-
-            # 🔥 Show social media buttons ALWAYS (outside try/except)
-            if user_data[chat_id].get("blog"):
-
-                buttons = [
-                    [{"text": "📸 Generate Instagram Post", "callback_data": "generate_instagram"}],
-                    [{"text": "💼 Generate LinkedIn Post", "callback_data": "generate_linkedin"}]
-                ]
-
-                send_buttons(chat_id, "✅ Blog ready! Generate social media posts:", buttons)
 
             return "ok"
 
@@ -909,8 +912,8 @@ Preview 👇
 
         if callback_data == "generate_instagram":
 
-            topic = user_data[chat_id]["topic"]
-            blog_content = user_data[chat_id].get("blog", "")
+            topic = user_data.get(chat_id, {}).get("topic")
+            blog_content = user_data.get(chat_id, {}).get("blog", "")
 
             send_message(chat_id, "📸 Generating Instagram post...")
 
@@ -929,9 +932,6 @@ Preview 👇
 
                 if instagram_text:
                     send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
-                else:
-                    send_message(chat_id, "⚠️ Could not generate Instagram post.")
-                    return "ok"
 
                 image = generate_blog_image(topic + " instagram post illustration")
 
@@ -956,8 +956,8 @@ Preview 👇
 
         if callback_data == "generate_linkedin":
 
-            topic = user_data[chat_id]["topic"]
-            blog_content = user_data[chat_id].get("blog", "")
+            topic = user_data.get(chat_id, {}).get("topic")
+            blog_content = user_data.get(chat_id, {}).get("blog", "")
 
             send_message(chat_id, "💼 Generating LinkedIn post...")
 
@@ -976,9 +976,6 @@ Preview 👇
 
                 if linkedin_text:
                     send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
-                else:
-                    send_message(chat_id, "⚠️ Could not generate LinkedIn post.")
-                    return "ok"
 
                 image = generate_blog_image(topic + " linkedin professional graphic")
 
@@ -998,7 +995,6 @@ Preview 👇
             return "ok"
 
     return "ok"
-
 
 # -----------------------------------
 # 🔁 Keep Server Alive
