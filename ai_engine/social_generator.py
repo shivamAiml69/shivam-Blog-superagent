@@ -1,9 +1,5 @@
-import google.generativeai as genai
-import os
+from ai_engine.ai_client import generate_analysis_content
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-model = genai.GenerativeModel( "models/gemini-2.5-flash-lite")
 
 def generate_social_posts(title, summary):
 
@@ -30,10 +26,10 @@ Blog Summary:
 
     try:
 
-        response = model.generate_content(prompt)
+        result = generate_analysis_content(prompt)
 
-        if response.text:
-            return response.text
+        if result:
+            return result
 
         return ""
 
