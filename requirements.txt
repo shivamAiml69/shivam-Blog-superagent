@@ -2,13 +2,12 @@ Flask
 markdown
 python-docx
 gunicorn
-google-generativeai
+google-genai
 requests
 python-dotenv
 textstat
 nltk
 tavily-python
-google-generativeai
 requests
 schedule
 python-docx
