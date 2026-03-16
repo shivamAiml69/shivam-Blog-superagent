@@ -852,7 +852,7 @@ Strategic Blueprint:
 
                 send_document(chat_id, blog_doc)
 
-            except Exception as e:
+            except Exception:
 
                 print("BLOG ERROR:", traceback.format_exc())
                 send_message(chat_id, "⚠️ Blog generation failed.")
@@ -872,7 +872,7 @@ Strategic Blueprint:
 
             try:
 
-                send_message(chat_id, "📱 Generating Social Media Posts...")
+                send_message(chat_id, "📱 Generating Social Media Content...")
 
                 social_text = generate_social_posts(topic, snippet)
 
@@ -892,34 +892,23 @@ Strategic Blueprint:
                 instagram_text = safe_text(instagram_text)
                 linkedin_text = safe_text(linkedin_text)
 
-                send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
-
+                # Generate Instagram Image
                 instagram_image = generate_blog_image(topic + " instagram illustration")
-
-                print("Instagram image:", instagram_image)
 
                 if instagram_image and os.path.exists(instagram_image) and valid_image(instagram_image):
                     send_photo(chat_id, instagram_image)
                 else:
                     instagram_image = None
 
-                send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
-
+                # Generate LinkedIn Image
                 linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
-
-                print("LinkedIn image:", linkedin_image)
 
                 if linkedin_image and os.path.exists(linkedin_image) and valid_image(linkedin_image):
                     send_photo(chat_id, linkedin_image)
                 else:
                     linkedin_image = None
 
-                # -----------------------------
                 # Create DOCX
-                # -----------------------------
-
-                time.sleep(1)
-
                 doc = Document()
 
                 doc.add_heading("Social Media Posts", level=0)
@@ -927,14 +916,26 @@ Strategic Blueprint:
                 doc.add_heading("Instagram Post", level=1)
                 doc.add_paragraph(instagram_text)
 
-                if instagram_image and os.path.exists(instagram_image) and valid_image(instagram_image):
-                    doc.add_picture(instagram_image, width=Inches(6))
+                if instagram_image and os.path.exists(instagram_image):
+                    try:
+                        img = Image.open(instagram_image)
+                        png = instagram_image + ".png"
+                        img.convert("RGB").save(png)
+                        doc.add_picture(png, width=Inches(6))
+                    except:
+                        pass
 
                 doc.add_heading("LinkedIn Post", level=1)
                 doc.add_paragraph(linkedin_text)
 
-                if linkedin_image and os.path.exists(linkedin_image) and valid_image(linkedin_image):
-                    doc.add_picture(linkedin_image, width=Inches(6))
+                if linkedin_image and os.path.exists(linkedin_image):
+                    try:
+                        img = Image.open(linkedin_image)
+                        png = linkedin_image + ".png"
+                        img.convert("RGB").save(png)
+                        doc.add_picture(png, width=Inches(6))
+                    except:
+                        pass
 
                 filename = "social_posts.docx"
 
@@ -942,7 +943,7 @@ Strategic Blueprint:
 
                 send_document(chat_id, filename)
 
-            except Exception as e:
+            except Exception:
 
                 print("SOCIAL ERROR:", traceback.format_exc())
                 send_message(chat_id, "⚠️ Social post generation failed.")
