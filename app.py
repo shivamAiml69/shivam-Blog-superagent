@@ -899,7 +899,7 @@ def telegram():
             threading.Thread(
                 target=generate_all,
                 args=(chat_id, topic, pillar, intent),
-                daemon=True
+                daemon=False
             ).start()
 
             return "ok"
