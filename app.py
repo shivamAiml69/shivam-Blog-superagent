@@ -648,7 +648,7 @@ def telegram():
             return "ok"
 
     # -----------------------------------
-    # Handle Button Callbacks
+    # Handle Callback Buttons
     # -----------------------------------
 
     if "callback_query" in data:
@@ -688,7 +688,6 @@ def telegram():
             pillar = user_data.get(chat_id, {}).get("pillar")
 
             topics_raw = suggest_topics(pillar, "Educational", None)
-
             topics_list = topics_raw.split("\n")
 
             clean_topics = []
@@ -792,7 +791,6 @@ Strategic Blueprint:
 """
 
                 blog_content = generate_blog(topic_context, pillar, intent)
-
                 blog_content = clean_ai_garbage(blog_content)
 
                 if blog_incomplete(blog_content):
@@ -800,7 +798,7 @@ Strategic Blueprint:
 
                 user_data[chat_id]["blog_content"] = blog_content
 
-                # Generate image
+                # Generate Image
                 blog_image = generate_blog_image(topic)
 
                 if blog_image and os.path.exists(blog_image):
@@ -815,10 +813,15 @@ Strategic Blueprint:
 
                 blog_doc = create_word_file(topic, blog_content, blog_image)
 
-                # BUTTON FIRST
+                # -----------------------------------
+                # Social Button
+                # -----------------------------------
+
                 buttons = [[
                     {"text": "📲 Generate Social Posts", "callback_data": "generate_social"}
                 ]]
+
+                print("Sending social button")
 
                 send_buttons(
                     chat_id,
@@ -826,7 +829,8 @@ Strategic Blueprint:
                     buttons
                 )
 
-                # DOCUMENT AFTER BUTTON
+                time.sleep(1)
+
                 send_document(chat_id, blog_doc)
 
             except Exception as e:
@@ -844,8 +848,8 @@ Strategic Blueprint:
 
         if callback_data == "generate_social":
 
-            topic = user_data[chat_id].get("topic", "")
-            blog_content = user_data[chat_id].get("blog_content", "")
+            topic = user_data.get(chat_id, {}).get("topic", "")
+            blog_content = user_data.get(chat_id, {}).get("blog_content", "")
 
             blog_snippet = blog_content[:800] if blog_content else topic
 
