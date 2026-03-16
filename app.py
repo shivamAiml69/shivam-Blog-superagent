@@ -621,6 +621,8 @@ def download_linkedin():
 # -----------------------------------
 
 def safe_text(text):
+    if not text:
+        return ""
     text = text.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
     return text[:4000]
 
@@ -646,9 +648,10 @@ def telegram():
             buttons = []
 
             for p in PILLARS:
-                buttons.append([
-                    {"text": p, "callback_data": f"pillar:{p}"}
-                ])
+                buttons.append([{
+                    "text": p,
+                    "callback_data": f"pillar:{p}"
+                }])
 
             send_buttons(
                 chat_id,
@@ -659,7 +662,7 @@ def telegram():
             return "ok"
 
     # -----------------------------------
-    # Handle Callback Buttons
+    # Handle Button Callbacks
     # -----------------------------------
 
     if "callback_query" in data:
@@ -723,9 +726,11 @@ def telegram():
             buttons = []
 
             for i in range(min(5, len(topics))):
-                buttons.append([
-                    {"text": topics[i][:40], "callback_data": f"topic_{i}"}
-                ])
+
+                buttons.append([{
+                    "text": topics[i][:40],
+                    "callback_data": f"topic_{i}"
+                }])
 
             send_buttons(chat_id, "🧠 Choose Topic:", buttons)
 
@@ -745,9 +750,10 @@ def telegram():
             buttons = []
 
             for intent in CONTENT_INTENTS:
-                buttons.append([
-                    {"text": intent, "callback_data": f"intent:{intent}"}
-                ])
+                buttons.append([{
+                    "text": intent,
+                    "callback_data": f"intent:{intent}"
+                }])
 
             send_buttons(
                 chat_id,
@@ -767,9 +773,10 @@ def telegram():
 
             user_data[chat_id]["intent"] = intent
 
-            buttons = [[
-                {"text": "🚀 Generate Blog", "callback_data": "generate_blog"}
-            ]]
+            buttons = [[{
+                "text": "🚀 Generate Blog",
+                "callback_data": "generate_blog"
+            }]]
 
             send_buttons(chat_id, f"Intent Selected: {intent}", buttons)
 
@@ -813,7 +820,7 @@ Strategic Blueprint:
 
                 user_data[chat_id]["blog_content"] = blog_content
 
-                # Generate image
+                # Generate blog image
                 blog_image = generate_blog_image(topic)
 
                 if blog_image and os.path.exists(blog_image):
@@ -821,9 +828,10 @@ Strategic Blueprint:
 
                 preview = blog_content[:300]
 
-                buttons = [[
-                    {"text": "📲 Generate Social Posts", "callback_data": "generate_social"}
-                ]]
+                buttons = [[{
+                    "text": "📲 Generate Social Posts",
+                    "callback_data": "generate_social"
+                }]]
 
                 send_buttons(
                     chat_id,
@@ -839,7 +847,8 @@ Strategic Blueprint:
 
             except Exception as e:
 
-                send_message(chat_id, f"⚠️ Blog generation failed: {str(e)}")
+                print("BLOG ERROR:", e)
+                send_message(chat_id, "⚠️ Blog generation failed.")
 
             return "ok"
 
@@ -849,8 +858,8 @@ Strategic Blueprint:
 
         if callback_data == "generate_social":
 
-            topic = user_data[chat_id].get("topic", "")
-            blog_content = user_data[chat_id].get("blog_content", "")
+            topic = user_data.get(chat_id, {}).get("topic", "")
+            blog_content = user_data.get(chat_id, {}).get("blog_content", "")
 
             snippet = blog_content[:800] if blog_content else topic
 
@@ -860,6 +869,10 @@ Strategic Blueprint:
 
                 social_text = generate_social_posts(topic, snippet)
 
+                if not social_text:
+                    send_message(chat_id, "⚠️ AI returned empty social content.")
+                    return "ok"
+
                 instagram_text = ""
                 linkedin_text = ""
 
@@ -868,28 +881,35 @@ Strategic Blueprint:
                     parts = social_text.split("LINKEDIN")
 
                     instagram_text = parts[0].replace("INSTAGRAM POST", "").replace("INSTAGRAM", "").strip()
-                    linkedin_text = parts[1].strip()
+                    linkedin_text = parts[-1].strip()
 
                 else:
                     instagram_text = social_text
 
-                # Instagram post
-                send_message(chat_id, f"📸 Instagram Post:\n\n{safe_text(instagram_text)}")
+                instagram_text = safe_text(instagram_text)
+                linkedin_text = safe_text(linkedin_text)
+
+                # Instagram Post
+                send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
 
                 instagram_image = generate_blog_image(topic + " instagram illustration")
 
                 if instagram_image and os.path.exists(instagram_image):
                     send_photo(chat_id, instagram_image)
+                else:
+                    instagram_image = None
 
-                # LinkedIn post
-                send_message(chat_id, f"💼 LinkedIn Post:\n\n{safe_text(linkedin_text)}")
+                # LinkedIn Post
+                send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
 
                 linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
 
                 if linkedin_image and os.path.exists(linkedin_image):
                     send_photo(chat_id, linkedin_image)
+                else:
+                    linkedin_image = None
 
-                # Create combined DOCX
+                # Create DOCX
                 doc = Document()
 
                 doc.add_heading("Social Media Posts", level=0)
@@ -897,29 +917,28 @@ Strategic Blueprint:
                 doc.add_heading("Instagram Post", level=1)
                 doc.add_paragraph(instagram_text)
 
-                if instagram_image and os.path.exists(instagram_image):
+                if instagram_image:
                     doc.add_picture(instagram_image, width=Inches(6))
 
                 doc.add_heading("LinkedIn Post", level=1)
                 doc.add_paragraph(linkedin_text)
 
-                if linkedin_image and os.path.exists(linkedin_image):
+                if linkedin_image:
                     doc.add_picture(linkedin_image, width=Inches(6))
 
                 filename = "social_posts.docx"
-
                 doc.save(filename)
 
                 send_document(chat_id, filename)
 
             except Exception as e:
 
-                send_message(chat_id, f"⚠️ Social post generation failed: {str(e)}")
+                print("SOCIAL ERROR:", e)
+                send_message(chat_id, "⚠️ Social post generation failed.")
 
             return "ok"
 
     return "ok"
-
 # -----------------------------------
 # 🔁 Keep Server Alive
 # -----------------------------------
