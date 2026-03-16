@@ -615,7 +615,6 @@ def download_linkedin():
         return send_file(generated_linkedin_doc, as_attachment=True)
     return "File not found", 404
 
-
 # -----------------------------------
 # 🤖 Telegram Webhook
 # -----------------------------------
@@ -673,7 +672,6 @@ def telegram():
         callback_data = query["data"]
         callback_id = query["id"]
 
-        # Prevent duplicate callbacks
         if callback_id in processed_callbacks:
             print("Duplicate callback ignored:", callback_id)
             return "ok"
@@ -726,7 +724,6 @@ def telegram():
             buttons = []
 
             for i in range(min(5, len(topics))):
-
                 buttons.append([{
                     "text": topics[i][:40],
                     "callback_data": f"topic_{i}"
@@ -820,7 +817,6 @@ Strategic Blueprint:
 
                 user_data[chat_id]["blog_content"] = blog_content
 
-                # Generate blog image
                 blog_image = generate_blog_image(topic)
 
                 if blog_image and os.path.exists(blog_image):
@@ -840,8 +836,6 @@ Strategic Blueprint:
                 )
 
                 blog_doc = create_word_file(topic, blog_content, blog_image)
-
-                time.sleep(1)
 
                 send_document(chat_id, blog_doc)
 
@@ -869,10 +863,6 @@ Strategic Blueprint:
 
                 social_text = generate_social_posts(topic, snippet)
 
-                if not social_text:
-                    send_message(chat_id, "⚠️ AI returned empty social content.")
-                    return "ok"
-
                 instagram_text = ""
                 linkedin_text = ""
 
@@ -889,27 +879,34 @@ Strategic Blueprint:
                 instagram_text = safe_text(instagram_text)
                 linkedin_text = safe_text(linkedin_text)
 
-                # Instagram Post
+                # Instagram
                 send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
 
                 instagram_image = generate_blog_image(topic + " instagram illustration")
+
+                print("Instagram image:", instagram_image)
 
                 if instagram_image and os.path.exists(instagram_image):
                     send_photo(chat_id, instagram_image)
                 else:
                     instagram_image = None
 
-                # LinkedIn Post
+                # LinkedIn
                 send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
 
                 linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
+
+                print("LinkedIn image:", linkedin_image)
 
                 if linkedin_image and os.path.exists(linkedin_image):
                     send_photo(chat_id, linkedin_image)
                 else:
                     linkedin_image = None
 
+                # -----------------------------
                 # Create DOCX
+                # -----------------------------
+
                 doc = Document()
 
                 doc.add_heading("Social Media Posts", level=0)
@@ -917,23 +914,26 @@ Strategic Blueprint:
                 doc.add_heading("Instagram Post", level=1)
                 doc.add_paragraph(instagram_text)
 
-                if instagram_image:
+                if instagram_image and os.path.exists(instagram_image):
                     doc.add_picture(instagram_image, width=Inches(6))
 
                 doc.add_heading("LinkedIn Post", level=1)
                 doc.add_paragraph(linkedin_text)
 
-                if linkedin_image:
+                if linkedin_image and os.path.exists(linkedin_image):
                     doc.add_picture(linkedin_image, width=Inches(6))
 
                 filename = "social_posts.docx"
+
                 doc.save(filename)
 
                 send_document(chat_id, filename)
 
             except Exception as e:
 
-                print("SOCIAL ERROR:", e)
+                import traceback
+                print("SOCIAL ERROR:", traceback.format_exc())
+
                 send_message(chat_id, "⚠️ Social post generation failed.")
 
             return "ok"
