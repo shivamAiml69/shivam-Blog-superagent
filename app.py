@@ -620,6 +620,11 @@ def download_linkedin():
 # 🤖 Telegram Webhook
 # -----------------------------------
 
+def safe_text(text):
+    text = text.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("`", "\\`")
+    return text[:4000]
+
+
 @app.route("/telegram", methods=["POST"])
 def telegram():
 
@@ -665,7 +670,7 @@ def telegram():
         callback_data = query["data"]
         callback_id = query["id"]
 
-        # Prevent duplicate execution
+        # Prevent duplicate callbacks
         if callback_id in processed_callbacks:
             print("Duplicate callback ignored:", callback_id)
             return "ok"
@@ -718,7 +723,6 @@ def telegram():
             buttons = []
 
             for i in range(min(5, len(topics))):
-
                 buttons.append([
                     {"text": topics[i][:40], "callback_data": f"topic_{i}"}
                 ])
@@ -809,7 +813,7 @@ Strategic Blueprint:
 
                 user_data[chat_id]["blog_content"] = blog_content
 
-                # Generate blog image
+                # Generate image
                 blog_image = generate_blog_image(topic)
 
                 if blog_image and os.path.exists(blog_image):
@@ -869,23 +873,23 @@ Strategic Blueprint:
                 else:
                     instagram_text = social_text
 
-                # Instagram
-                send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
+                # Instagram post
+                send_message(chat_id, f"📸 Instagram Post:\n\n{safe_text(instagram_text)}")
 
                 instagram_image = generate_blog_image(topic + " instagram illustration")
 
                 if instagram_image and os.path.exists(instagram_image):
                     send_photo(chat_id, instagram_image)
 
-                # LinkedIn
-                send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
+                # LinkedIn post
+                send_message(chat_id, f"💼 LinkedIn Post:\n\n{safe_text(linkedin_text)}")
 
                 linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
 
                 if linkedin_image and os.path.exists(linkedin_image):
                     send_photo(chat_id, linkedin_image)
 
-                # Create ONE DOCX
+                # Create combined DOCX
                 doc = Document()
 
                 doc.add_heading("Social Media Posts", level=0)
