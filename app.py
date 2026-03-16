@@ -654,27 +654,24 @@ def telegram():
             return "ok"
 
     # -----------------------------------
-    # Handle Button Callbacks
+    # Handle Callback Buttons
     # -----------------------------------
 
     if "callback_query" in data:
 
         query = data["callback_query"]
+
         chat_id = query["message"]["chat"]["id"]
         callback_data = query["data"]
         callback_id = query["id"]
 
-        # -----------------------------------
         # Prevent duplicate execution
-        # -----------------------------------
-
         if callback_id in processed_callbacks:
             print("Duplicate callback ignored:", callback_id)
             return "ok"
 
         processed_callbacks.add(callback_id)
 
-        # prevent memory growth
         if len(processed_callbacks) > 1000:
             processed_callbacks.clear()
 
@@ -721,6 +718,7 @@ def telegram():
             buttons = []
 
             for i in range(min(5, len(topics))):
+
                 buttons.append([
                     {"text": topics[i][:40], "callback_data": f"topic_{i}"}
                 ])
@@ -811,7 +809,7 @@ Strategic Blueprint:
 
                 user_data[chat_id]["blog_content"] = blog_content
 
-                # Generate image
+                # Generate blog image
                 blog_image = generate_blog_image(topic)
 
                 if blog_image and os.path.exists(blog_image):
@@ -819,7 +817,6 @@ Strategic Blueprint:
 
                 preview = blog_content[:300]
 
-                # SOCIAL BUTTON ATTACHED TO PREVIEW MESSAGE
                 buttons = [[
                     {"text": "📲 Generate Social Posts", "callback_data": "generate_social"}
                 ]]
@@ -838,9 +835,6 @@ Strategic Blueprint:
 
             except Exception as e:
 
-                import traceback
-                print(traceback.format_exc())
-
                 send_message(chat_id, f"⚠️ Blog generation failed: {str(e)}")
 
             return "ok"
@@ -858,13 +852,24 @@ Strategic Blueprint:
 
             try:
 
-                send_message(chat_id, "📸 Generating Instagram post...")
+                send_message(chat_id, "📱 Generating Social Media Posts...")
 
-                instagram_text = generate_social_posts(
-                    topic,
-                    "Write an engaging Instagram caption:\n\n" + snippet
-                )
+                social_text = generate_social_posts(topic, snippet)
 
+                instagram_text = ""
+                linkedin_text = ""
+
+                if "LINKEDIN" in social_text.upper():
+
+                    parts = social_text.split("LINKEDIN")
+
+                    instagram_text = parts[0].replace("INSTAGRAM POST", "").replace("INSTAGRAM", "").strip()
+                    linkedin_text = parts[1].strip()
+
+                else:
+                    instagram_text = social_text
+
+                # Instagram
                 send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
 
                 instagram_image = generate_blog_image(topic + " instagram illustration")
@@ -872,28 +877,7 @@ Strategic Blueprint:
                 if instagram_image and os.path.exists(instagram_image):
                     send_photo(chat_id, instagram_image)
 
-                insta_doc = create_social_word_file(
-                    topic,
-                    instagram_text,
-                    instagram_image,
-                    "Instagram"
-                )
-
-                send_document(chat_id, insta_doc)
-
-            except Exception as e:
-
-                send_message(chat_id, f"⚠️ Instagram post failed: {str(e)}")
-
-            try:
-
-                send_message(chat_id, "💼 Generating LinkedIn post...")
-
-                linkedin_text = generate_social_posts(
-                    topic,
-                    "Write a professional LinkedIn post:\n\n" + snippet
-                )
-
+                # LinkedIn
                 send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
 
                 linkedin_image = generate_blog_image(topic + " linkedin professional graphic")
@@ -901,18 +885,32 @@ Strategic Blueprint:
                 if linkedin_image and os.path.exists(linkedin_image):
                     send_photo(chat_id, linkedin_image)
 
-                linkedin_doc = create_social_word_file(
-                    topic,
-                    linkedin_text,
-                    linkedin_image,
-                    "LinkedIn"
-                )
+                # Create ONE DOCX
+                doc = Document()
 
-                send_document(chat_id, linkedin_doc)
+                doc.add_heading("Social Media Posts", level=0)
+
+                doc.add_heading("Instagram Post", level=1)
+                doc.add_paragraph(instagram_text)
+
+                if instagram_image and os.path.exists(instagram_image):
+                    doc.add_picture(instagram_image, width=Inches(6))
+
+                doc.add_heading("LinkedIn Post", level=1)
+                doc.add_paragraph(linkedin_text)
+
+                if linkedin_image and os.path.exists(linkedin_image):
+                    doc.add_picture(linkedin_image, width=Inches(6))
+
+                filename = "social_posts.docx"
+
+                doc.save(filename)
+
+                send_document(chat_id, filename)
 
             except Exception as e:
 
-                send_message(chat_id, f"⚠️ LinkedIn post failed: {str(e)}")
+                send_message(chat_id, f"⚠️ Social post generation failed: {str(e)}")
 
             return "ok"
 
