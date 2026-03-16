@@ -648,7 +648,7 @@ def telegram():
             return "ok"
 
     # -----------------------------------
-    # Handle Callback Buttons
+    # Handle Button Callbacks
     # -----------------------------------
 
     if "callback_query" in data:
@@ -688,29 +688,21 @@ def telegram():
             pillar = user_data.get(chat_id, {}).get("pillar")
 
             topics_raw = suggest_topics(pillar, "Educational", None)
-            topics_list = topics_raw.split("\n")
 
-            clean_topics = []
+            topics = []
 
-            for t in topics_list:
+            for t in topics_raw.split("\n"):
+                t = t.strip().lstrip("1234567890.- ")
+                if t:
+                    topics.append(t)
 
-                t = t.strip()
-
-                if not t:
-                    continue
-
-                t = t.lstrip("1234567890.- ")
-
-                clean_topics.append(t)
-
-            user_data[chat_id]["topics"] = clean_topics
+            user_data[chat_id]["topics"] = topics
 
             buttons = []
 
-            for i in range(min(5, len(clean_topics))):
-
+            for i in range(min(5, len(topics))):
                 buttons.append([
-                    {"text": clean_topics[i][:40], "callback_data": f"topic_{i}"}
+                    {"text": topics[i][:40], "callback_data": f"topic_{i}"}
                 ])
 
             send_buttons(chat_id, "🧠 Choose Topic:", buttons)
@@ -724,7 +716,6 @@ def telegram():
         if callback_data.startswith("topic_"):
 
             index = int(callback_data.split("_")[1])
-
             topic = user_data[chat_id]["topics"][index]
 
             user_data[chat_id]["topic"] = topic
@@ -732,7 +723,6 @@ def telegram():
             buttons = []
 
             for intent in CONTENT_INTENTS:
-
                 buttons.append([
                     {"text": intent, "callback_data": f"intent:{intent}"}
                 ])
@@ -791,6 +781,7 @@ Strategic Blueprint:
 """
 
                 blog_content = generate_blog(topic_context, pillar, intent)
+
                 blog_content = clean_ai_garbage(blog_content)
 
                 if blog_incomplete(blog_content):
@@ -798,7 +789,7 @@ Strategic Blueprint:
 
                 user_data[chat_id]["blog_content"] = blog_content
 
-                # Generate Image
+                # Generate image
                 blog_image = generate_blog_image(topic)
 
                 if blog_image and os.path.exists(blog_image):
@@ -806,28 +797,18 @@ Strategic Blueprint:
 
                 preview = blog_content[:300]
 
-                send_message(
-                    chat_id,
-                    f"📝 Blog Generated\n\nTitle: {topic}\nPillar: {pillar}\nIntent: {intent}\n\nPreview 👇\n\n{preview}..."
-                )
-
-                blog_doc = create_word_file(topic, blog_content, blog_image)
-
-                # -----------------------------------
-                # Social Button
-                # -----------------------------------
-
+                # SOCIAL BUTTON ATTACHED TO PREVIEW MESSAGE
                 buttons = [[
                     {"text": "📲 Generate Social Posts", "callback_data": "generate_social"}
                 ]]
 
-                print("Sending social button")
-
                 send_buttons(
                     chat_id,
-                    "✅ Blog done! Click below to generate Instagram & LinkedIn posts:",
+                    f"📝 Blog Generated\n\nTitle: {topic}\nPillar: {pillar}\nIntent: {intent}\n\nPreview 👇\n\n{preview}...",
                     buttons
                 )
+
+                blog_doc = create_word_file(topic, blog_content, blog_image)
 
                 time.sleep(1)
 
@@ -848,10 +829,10 @@ Strategic Blueprint:
 
         if callback_data == "generate_social":
 
-            topic = user_data.get(chat_id, {}).get("topic", "")
-            blog_content = user_data.get(chat_id, {}).get("blog_content", "")
+            topic = user_data[chat_id].get("topic", "")
+            blog_content = user_data[chat_id].get("blog_content", "")
 
-            blog_snippet = blog_content[:800] if blog_content else topic
+            snippet = blog_content[:800] if blog_content else topic
 
             try:
 
@@ -859,7 +840,7 @@ Strategic Blueprint:
 
                 instagram_text = generate_social_posts(
                     topic,
-                    "Write an engaging Instagram caption for:\n\n" + blog_snippet
+                    "Write an engaging Instagram caption:\n\n" + snippet
                 )
 
                 send_message(chat_id, f"📸 Instagram Post:\n\n{instagram_text}")
@@ -869,14 +850,14 @@ Strategic Blueprint:
                 if instagram_image and os.path.exists(instagram_image):
                     send_photo(chat_id, instagram_image)
 
-                instagram_doc = create_social_word_file(
+                insta_doc = create_social_word_file(
                     topic,
                     instagram_text,
                     instagram_image,
                     "Instagram"
                 )
 
-                send_document(chat_id, instagram_doc)
+                send_document(chat_id, insta_doc)
 
             except Exception as e:
 
@@ -888,7 +869,7 @@ Strategic Blueprint:
 
                 linkedin_text = generate_social_posts(
                     topic,
-                    "Write a professional LinkedIn post:\n\n" + blog_snippet
+                    "Write a professional LinkedIn post:\n\n" + snippet
                 )
 
                 send_message(chat_id, f"💼 LinkedIn Post:\n\n{linkedin_text}")
@@ -914,6 +895,7 @@ Strategic Blueprint:
             return "ok"
 
     return "ok"
+
 # -----------------------------------
 # 🔁 Keep Server Alive
 # -----------------------------------
