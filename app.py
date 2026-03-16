@@ -58,6 +58,12 @@ generated_instagram_doc = None
 generated_linkedin_doc = None
 
 # -----------------------------------
+# Prevent Telegram duplicate callbacks
+# -----------------------------------
+
+processed_callbacks = set()
+
+# -----------------------------------
 # Constants
 # -----------------------------------
 
@@ -658,6 +664,20 @@ def telegram():
         callback_data = query["data"]
         callback_id = query["id"]
 
+        # -----------------------------------
+        # Prevent duplicate execution
+        # -----------------------------------
+
+        if callback_id in processed_callbacks:
+            print("Duplicate callback ignored:", callback_id)
+            return "ok"
+
+        processed_callbacks.add(callback_id)
+
+        # prevent memory growth
+        if len(processed_callbacks) > 1000:
+            processed_callbacks.clear()
+
         answer_callback(callback_id)
 
         # -----------------------------------
@@ -759,9 +779,11 @@ def telegram():
 
         if callback_data == "generate_blog":
 
-            topic = user_data.get(chat_id, {}).get("topic")
-            pillar = user_data.get(chat_id, {}).get("pillar")
-            intent = user_data.get(chat_id, {}).get("intent")
+            user = user_data.get(chat_id, {})
+
+            topic = user.get("topic", "AI Marketing")
+            pillar = user.get("pillar", "AI Strategy")
+            intent = user.get("intent", "Educational")
 
             send_message(chat_id, "🧠 Generating blog... Please wait (~30 seconds)")
 
