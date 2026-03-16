@@ -31,7 +31,7 @@ Blog Summary:
     for key in GEMINI_KEYS:
         try:
             genai.configure(api_key=key)
-            model = genai.GenerativeModel("models/gemini-1.5-flash")
+            model = genai.GenerativeModel("models/gemini-2.5-flash")
             response = model.generate_content(prompt)
             if response.text:
                 return response.text
